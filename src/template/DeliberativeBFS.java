@@ -4,7 +4,10 @@ package template;
 import logist.simulation.Vehicle;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.JOptionPane;
 
@@ -101,8 +104,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
-		ArrayList<Plan> plan_List= new ArrayList<Plan>();
-		Hashtable<Plan,Double> plan_table = new Hashtable<Plan,Double>();
+		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();		
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
 		State currentState = new State();
 		int cost=0;
@@ -143,19 +145,28 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			currentState = new State(current, currentSpace, task_table);
 			this.state_list.add(currentState);
 		}
-		//System.out.println("Plan Built");
 		profit = totalReward-cost;
 		plan_table.put(plan,(double) profit);
-		//System.out.println("Cost= " + cost);
-		//System.out.println("Reward= " + totalReward);
-		profit = totalReward-cost;
-		//System.out.println("Profit= " + profit);
+		/*System.out.println("Cost= " + cost);
+		System.out.println("Reward= " + totalReward);
+		System.out.println("Profit= " + profit);*/
 		cost = 0;
 		totalReward = 0;
 		currentSpace = 0;
 		if(currentState.task_table.isEmpty()) System.out.println("Bingo");
 
-		return plan_List.get(0);
+		
+		Plan bestPlan = null;
+		double minCost = Double.MAX_VALUE;
+
+		for(Entry<Plan, Double> entry : plan_table.entrySet()){
+			if(entry.getValue() < minCost){
+		    	minCost= entry.getValue();
+		    	bestPlan= entry.getKey();
+		    }
+		}
+		if(bestPlan == null) throw new AssertionError("Best Plan not find.");
+		return bestPlan;
 	}
 
 	@Override
