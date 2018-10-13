@@ -121,10 +121,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
-		for(int j=0;j<1;j++) {	
+		for(int j=0;j<2000;j++) {	
 			for (Task task : tasks) {
 				task_table.put(task, 1.0); //1 = task has to be taken, else 0
-				System.out.println("Task= " + task.toString());
+				//System.out.println("Task= " + task.toString());
 			}
 			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
@@ -161,13 +161,14 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			profit = totalReward-cost;
 			//plan_table.put(plan,(double) profit);
 			action_table.put(action_list, (double) profit);
-			System.out.println("Cost= " + cost);
-			System.out.println("Reward= " + totalReward);
-			System.out.println("Profit= " + profit);
+			System.out.println("Cost no: " + j + " = " + cost);
+			//System.out.println("Reward= " + totalReward);
+			System.out.println("Profit no: " + j + " = " + profit);
 			cost = 0;
 			totalReward = 0;
 			currentSpace = vehicle.capacity();	
-			currentCity = vehicle.getCurrentCity();		
+			currentCity = vehicle.getCurrentCity();
+			action_list = new ArrayList<Action>();
 		}
 		ArrayList<Action> bestActionList = null;
 		double bestProfit = 0;
@@ -182,17 +183,17 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		currentCity = vehicle.getCurrentCity();
 		for(int i=0;i<bestActionList.size();i++) {
 			if(bestActionList.get(i).getCity()!=null) {
-				System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
+				//System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
 				currentCity = bestActionList.get(i).getCity();
 				plan.appendMove(bestActionList.get(i).getCity());			
 			}
 			else {
 				if(bestActionList.get(i).getPickup()) {
-					System.out.println("Pickup= " + bestActionList.get(i).getTask());
+					//System.out.println("Pickup= " + bestActionList.get(i).getTask());
 					plan.appendPickup(bestActionList.get(i).getTask());
 				}
 				else {					
-					System.out.println("deliver= " + bestActionList.get(i).getTask());
+					//System.out.println("deliver= " + bestActionList.get(i).getTask());
 					plan.appendDelivery(bestActionList.get(i).getTask());
 				}
 			}
