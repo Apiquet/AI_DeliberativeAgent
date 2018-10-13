@@ -32,7 +32,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	/* Environment */
 	Topology topology;
 	TaskDistribution td;
-	TaskDistribution tdBackup;
 	ArrayList<State> state_list= new ArrayList<State>();
 
 	/* the properties of the agent */
@@ -46,7 +45,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	public void setup(Topology topology, TaskDistribution td, Agent agent) {
 		this.topology = topology;
 		this.td = td;
-		this.tdBackup = td;
 		this.agent = agent;
 		
 		// initialize the planner
@@ -58,10 +56,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		this.algorithm = Algorithm.valueOf(algorithmName.toUpperCase());
 		
 		// ...
-	}
-	public void backupTD()
-	{
-		this.td=this.tdBackup;
 	}
 	@Override
 	public Plan plan(Vehicle vehicle, TaskSet tasks) {
@@ -117,19 +111,20 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City currentCity = vehicle.getCurrentCity();
 		Plan plan = new Plan(currentCity);
-		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();		
+		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
+		HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
+		ArrayList<Action> action_list = new ArrayList<Action>();
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
-		State currentState = new State();
+		State currentState = new State();		
+		Action currentAction = new Action();
 		int cost=0;
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
 		for(int j=0;j<1;j++) {	
-
 			for (Task task : tasks) {
 				task_table.put(task, 1.0); //1 = task has to be taken, else 0
 				System.out.println("Task= " + task.toString());
-
 			}
 			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
@@ -138,18 +133,22 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				// move: current city => pickup location
 				Random rand = new Random();
 				City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
-				plan.appendMove(nextCity);
+				//plan.appendMove(nextCity);
+				action_list.add(new Action(false,false,null,true,nextCity));
 				cost+=currentCity.distanceTo(nextCity)*vehicle.costPerKm();
 				currentCity = nextCity;
 				Task task = IsThereAvalaibleTaskInCity(currentCity,task_table);
 				if(task != null) {
-					plan.appendPickup(task);
+					//plan.appendPickup(task);
+					action_list.add(new Action(true,false,task,false,null));
 					for (City city :  currentCity.pathTo(task.deliveryCity)) {
-						plan.appendMove(city);
+						//plan.appendMove(city);
+						action_list.add(new Action(false,false,null,true,city));
 						cost+=currentCity.distanceTo(city)*vehicle.costPerKm();
-						currentCity = city;
+						//currentCity = city;
 					}
-					plan.appendDelivery(task);
+					//plan.appendDelivery(task);
+					action_list.add(new Action(false,true,task,false,null));
 					currentSpace-=task.weight;
 					// set current city
 					currentCity = task.deliveryCity;
@@ -160,37 +159,47 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				this.state_list.add(currentState);
 			}
 			profit = totalReward-cost;
-			plan_table.put(plan,(double) profit);
+			//plan_table.put(plan,(double) profit);
+			action_table.put(action_list, (double) profit);
 			System.out.println("Cost= " + cost);
 			System.out.println("Reward= " + totalReward);
 			System.out.println("Profit= " + profit);
 			cost = 0;
 			totalReward = 0;
-			currentSpace = vehicle.capacity();
-			backupTD();
-			setup(this.topology, this.td, this.agent);
-
-			for (City city :  currentCity.pathTo(this.topology.cities().get(0))) {
-				plan.appendMove(city);
-				currentCity = city;
-			}
-			
+			currentSpace = vehicle.capacity();	
+			currentCity = vehicle.getCurrentCity();		
 		}
-		Plan bestPlan = null;
+		ArrayList<Action> bestActionList = null;
 		double bestProfit = 0;
 
-		for(Entry<Plan, Double> entry : plan_table.entrySet()){
+		for(Entry<ArrayList<Action>, Double> entry : action_table.entrySet()){
 			if(entry.getValue() > bestProfit){
 				bestProfit= entry.getValue();
-		    	bestPlan= entry.getKey();
+				bestActionList= entry.getKey();
 		    }
 			System.out.println("Best plan search= " + bestProfit);
-
 		}
-		if(bestPlan == null) throw new AssertionError("Best Plan not found.");
+		currentCity = vehicle.getCurrentCity();
+		for(int i=0;i<bestActionList.size();i++) {
+			if(bestActionList.get(i).getCity()!=null) {
+				System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
+				currentCity = bestActionList.get(i).getCity();
+				plan.appendMove(bestActionList.get(i).getCity());			
+			}
+			else {
+				if(bestActionList.get(i).getPickup()) {
+					System.out.println("Pickup= " + bestActionList.get(i).getTask());
+					plan.appendPickup(bestActionList.get(i).getTask());
+				}
+				else {					
+					System.out.println("deliver= " + bestActionList.get(i).getTask());
+					plan.appendDelivery(bestActionList.get(i).getTask());
+				}
+			}
+		}
 
 		System.out.println("Best profit= " + bestProfit);
-		return bestPlan;
+		return plan;
 	}
 
 	@Override
@@ -203,7 +212,37 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 	}
 }
-
+class Action{
+	boolean pickup=false;
+	boolean delivery=false;
+	Task task=null;
+	boolean move=false;
+	City city = null;
+	public Action(boolean pickup,boolean delivery, Task task, boolean move, City city) {				
+		this.pickup = pickup;
+		this.delivery = delivery;
+		this.task = task;
+		this.move = move;		
+		this.city = city;				
+	}
+	public Action() {					
+	}
+	public boolean getPickup() {
+		return this.pickup;
+	}
+	public boolean getDelivery() {
+		return this.delivery;
+	}
+	public boolean getMove() {
+		return this.move;
+	}
+	public Task getTask() {
+		return this.task;
+	}
+	public City getCity() {
+		return this.city;
+	}
+}
 class State {
 	private City currentCity;
 	private int availableSpace;

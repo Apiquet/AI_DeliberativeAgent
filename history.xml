@@ -17,27 +17,30 @@
 				<task id="5" pickup="Sion" delivery="Basel" weight="3" reward="46991"/>
 			</tasks>
 			<events>
-				<event id="0" time="0" vehicle="Vehicle 1" move="Genève"/>
-				<event id="1" time="999999967" vehicle="Vehicle 1" move="Lausanne"/>
-				<event id="2" time="1999999922" vehicle="Vehicle 1" pickup="4"/>
-				<event id="3" time="2299999911" vehicle="Vehicle 1" move="Fribourg"/>
-				<event id="4" time="3411110973" vehicle="Vehicle 1" move="Bern"/>
-				<event id="5" time="3966666502" vehicle="Vehicle 1" move="Aarau"/>
-				<event id="6" time="5188888668" vehicle="Vehicle 1" move="Zürich"/>
-				<event id="7" time="5855555304" vehicle="Vehicle 1" move="St-Gallen"/>
-				<event id="8" time="7188888578" vehicle="Vehicle 1" deliver="4"/>
-				<event id="9" time="7488888568" vehicle="Vehicle 1" move="Zürich"/>
-				<event id="10" time="8822221846" vehicle="Vehicle 1" pickup="1"/>
+				<event id="0" time="0" vehicle="Vehicle 1" move="Fribourg"/>
+				<event id="1" time="1111111081" vehicle="Vehicle 1" move="Bern"/>
+				<event id="2" time="1666666613" vehicle="Vehicle 1" move="Neuchâtel"/>
+				<event id="3" time="2333333252" vehicle="Vehicle 1" move="Lausanne"/>
+				<event id="4" time="3444444315" vehicle="Vehicle 1" pickup="4"/>
+				<event id="5" time="3744444302" vehicle="Vehicle 1" move="Fribourg"/>
+				<event id="6" time="4855555367" vehicle="Vehicle 1" move="Bern"/>
+				<event id="7" time="5411110901" vehicle="Vehicle 1" move="Aarau"/>
+				<event id="8" time="6633333077" vehicle="Vehicle 1" move="Zürich"/>
+				<event id="9" time="7299999716" vehicle="Vehicle 1" move="St-Gallen"/>
+				<event id="10" time="8633333002" vehicle="Vehicle 1" deliver="4"/>
+				<event id="11" time="8933332990" vehicle="Vehicle 1" move="Zürich"/>
+				<event id="12" time="10266666270" vehicle="Vehicle 1" pickup="1"/>
+				<event id="13" time="10566666258" vehicle="Vehicle 1" move="Aarau"/>
 			</events>
 		</round>
 	</rounds>
 	<statistics>
 		<stat rank="1" agent="deliberative-bfs">
 			<total-tasks value="6"/>
-			<total-distance value="740.0"/>
-			<total-cost value="3700"/>
+			<total-distance value="930.0"/>
+			<total-cost value="4650"/>
 			<total-reward value="18448"/>
-			<total-profit value="14748"/>
+			<total-profit value="13798"/>
 		</stat>
 	</statistics>
 </history>
