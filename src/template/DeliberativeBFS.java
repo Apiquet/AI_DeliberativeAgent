@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 
 import javax.swing.JOptionPane;
 
@@ -77,7 +78,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}		
 		return plan;
 	}
-	
 	private Plan naivePlan(Vehicle vehicle, TaskSet tasks) {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
@@ -100,10 +100,18 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return plan;
 	}
-	
+
+	private Task IsThereAvalaibleTaskInCity(City city, Hashtable<Task,Double> task_table) {
+		for(Entry<Task, Double> entry : task_table.entrySet()){
+			if(entry.getKey().pickupCity == city){
+		    	return entry.getKey();
+		    }
+		}
+		return null;
+	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
-		City current = vehicle.getCurrentCity();
-		Plan plan = new Plan(current);
+		City currentCity = vehicle.getCurrentCity();
+		Plan plan = new Plan(currentCity);
 		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();		
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
 		State currentState = new State();
@@ -115,47 +123,42 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		for (Task task : tasks) {
 			task_table.put(task, 1.0); //1 = task has to be taken, else 0
 		}
-		this.state_list.add(new State(current, currentSpace, task_table));
+		currentState = new State(currentCity, currentSpace, task_table);
+		this.state_list.add(currentState);
 
-		for (Task task : tasks) {
+		while(currentState.task_table.isEmpty() == false) {
 			// move: current city => pickup location
-			for (City city : current.pathTo(task.pickupCity)) {
-				plan.appendMove(city);
-				cost+=current.distanceTo(city)*vehicle.costPerKm();
-				current = city;
+			Random rand = new Random();
+			City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
+			plan.appendMove(nextCity);
+			cost+=currentCity.distanceTo(nextCity)*vehicle.costPerKm();
+			currentCity = nextCity;
+			Task task = IsThereAvalaibleTaskInCity(currentCity,task_table);
+			if(task != null) {
+				plan.appendPickup(task);
+				for (City city : task.path()) {
+					plan.appendMove(city);
+					cost+=currentCity.distanceTo(city)*vehicle.costPerKm();
+					currentCity = city;
+				}
+				plan.appendDelivery(task);
+				currentSpace-=task.weight;
+				// set current city
+				currentCity = task.deliveryCity;
+				totalReward += task.reward;
+				task_table.remove(task);
 			}
-
-			plan.appendPickup(task);
-			currentSpace+=task.weight;
-			
-			// move: pickup location => delivery location
-			for (City city : task.path()) {
-				plan.appendMove(city);
-				cost+=current.distanceTo(city)*vehicle.costPerKm();
-				current = city;
-			}
-
-			plan.appendDelivery(task);
-			currentSpace-=task.weight;
-
-			// set current city
-			current = task.deliveryCity;
-			totalReward += task.reward;
-			task_table.remove(task);
-			currentState = new State(current, currentSpace, task_table);
+			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
 		}
 		profit = totalReward-cost;
 		plan_table.put(plan,(double) profit);
-		/*System.out.println("Cost= " + cost);
+		System.out.println("Cost= " + cost);
 		System.out.println("Reward= " + totalReward);
-		System.out.println("Profit= " + profit);*/
+		System.out.println("Profit= " + profit);
 		cost = 0;
 		totalReward = 0;
-		currentSpace = 0;
-		if(currentState.task_table.isEmpty()) System.out.println("Bingo");
-
-		
+		currentSpace = 0;		
 		Plan bestPlan = null;
 		double minCost = Double.MAX_VALUE;
 
