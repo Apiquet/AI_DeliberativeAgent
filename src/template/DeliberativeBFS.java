@@ -102,18 +102,18 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
 		ArrayList<Plan> plan_List= new ArrayList<Plan>();
+		Hashtable<Plan,Double> plan_table = new Hashtable<Plan,Double>();
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
 		State currentState = new State();
 		int cost=0;
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
+		
 		for (Task task : tasks) {
 			task_table.put(task, 1.0); //1 = task has to be taken, else 0
 		}
 		this.state_list.add(new State(current, currentSpace, task_table));
-		System.out.println("State list 1=" + this.state_list.toString());
-		System.out.println("Task 1=" + task_table.toString());
 
 		for (Task task : tasks) {
 			// move: current city => pickup location
@@ -142,15 +142,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			task_table.remove(task);
 			currentState = new State(current, currentSpace, task_table);
 			this.state_list.add(currentState);
-			System.out.println("State List 2=" + this.state_list.toString());
-			System.out.println("Task 2=" + task_table.toString());
-
 		}
 		//System.out.println("Plan Built");
-
-		System.out.println("State List 3=" + this.state_list.toString());
-		System.out.println("Task 3=" + task_table.toString());
-		plan_List.add(plan);
+		profit = totalReward-cost;
+		plan_table.put(plan,(double) profit);
 		//System.out.println("Cost= " + cost);
 		//System.out.println("Reward= " + totalReward);
 		profit = totalReward-cost;
