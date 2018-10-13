@@ -32,6 +32,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	/* Environment */
 	Topology topology;
 	TaskDistribution td;
+	TaskDistribution tdBackup;
 	ArrayList<State> state_list= new ArrayList<State>();
 
 	/* the properties of the agent */
@@ -45,6 +46,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	public void setup(Topology topology, TaskDistribution td, Agent agent) {
 		this.topology = topology;
 		this.td = td;
+		this.tdBackup = td;
 		this.agent = agent;
 		
 		// initialize the planner
@@ -57,7 +59,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		
 		// ...
 	}
-	
+	public void backupTD()
+	{
+		this.td=this.tdBackup;
+	}
 	@Override
 	public Plan plan(Vehicle vehicle, TaskSet tasks) {
 		Plan plan;
@@ -119,56 +124,72 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
-		
-		for (Task task : tasks) {
-			task_table.put(task, 1.0); //1 = task has to be taken, else 0
-		}
-		currentState = new State(currentCity, currentSpace, task_table);
-		this.state_list.add(currentState);
+		for(int j=0;j<1;j++) {	
 
-		while(currentState.task_table.isEmpty() == false) {
-			// move: current city => pickup location
-			Random rand = new Random();
-			City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
-			plan.appendMove(nextCity);
-			cost+=currentCity.distanceTo(nextCity)*vehicle.costPerKm();
-			currentCity = nextCity;
-			Task task = IsThereAvalaibleTaskInCity(currentCity,task_table);
-			if(task != null) {
-				plan.appendPickup(task);
-				for (City city : task.path()) {
-					plan.appendMove(city);
-					cost+=currentCity.distanceTo(city)*vehicle.costPerKm();
-					currentCity = city;
-				}
-				plan.appendDelivery(task);
-				currentSpace-=task.weight;
-				// set current city
-				currentCity = task.deliveryCity;
-				totalReward += task.reward;
-				task_table.remove(task);
+			for (Task task : tasks) {
+				task_table.put(task, 1.0); //1 = task has to be taken, else 0
+				System.out.println("Task= " + task.toString());
+
 			}
 			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
+	
+			while(currentState.task_table.isEmpty() == false) {
+				// move: current city => pickup location
+				Random rand = new Random();
+				City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
+				plan.appendMove(nextCity);
+				cost+=currentCity.distanceTo(nextCity)*vehicle.costPerKm();
+				currentCity = nextCity;
+				Task task = IsThereAvalaibleTaskInCity(currentCity,task_table);
+				if(task != null) {
+					plan.appendPickup(task);
+					for (City city :  currentCity.pathTo(task.deliveryCity)) {
+						plan.appendMove(city);
+						cost+=currentCity.distanceTo(city)*vehicle.costPerKm();
+						currentCity = city;
+					}
+					plan.appendDelivery(task);
+					currentSpace-=task.weight;
+					// set current city
+					currentCity = task.deliveryCity;
+					totalReward += task.reward;
+					task_table.remove(task);
+				}
+				currentState = new State(currentCity, currentSpace, task_table);
+				this.state_list.add(currentState);
+			}
+			profit = totalReward-cost;
+			plan_table.put(plan,(double) profit);
+			System.out.println("Cost= " + cost);
+			System.out.println("Reward= " + totalReward);
+			System.out.println("Profit= " + profit);
+			cost = 0;
+			totalReward = 0;
+			currentSpace = vehicle.capacity();
+			backupTD();
+			setup(this.topology, this.td, this.agent);
+
+			for (City city :  currentCity.pathTo(this.topology.cities().get(0))) {
+				plan.appendMove(city);
+				currentCity = city;
+			}
+			
 		}
-		profit = totalReward-cost;
-		plan_table.put(plan,(double) profit);
-		System.out.println("Cost= " + cost);
-		System.out.println("Reward= " + totalReward);
-		System.out.println("Profit= " + profit);
-		cost = 0;
-		totalReward = 0;
-		currentSpace = 0;		
 		Plan bestPlan = null;
-		double minCost = Double.MAX_VALUE;
+		double bestProfit = 0;
 
 		for(Entry<Plan, Double> entry : plan_table.entrySet()){
-			if(entry.getValue() < minCost){
-		    	minCost= entry.getValue();
+			if(entry.getValue() > bestProfit){
+				bestProfit= entry.getValue();
 		    	bestPlan= entry.getKey();
 		    }
+			System.out.println("Best plan search= " + bestProfit);
+
 		}
-		if(bestPlan == null) throw new AssertionError("Best Plan not find.");
+		if(bestPlan == null) throw new AssertionError("Best Plan not found.");
+
+		System.out.println("Best profit= " + bestProfit);
 		return bestPlan;
 	}
 
