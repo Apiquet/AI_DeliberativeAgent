@@ -193,9 +193,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				if(taskToPickUp.size() != 0) {
 					for(int i=0;i<taskToPickUp.size();i++) {
 						if(currentSpace > taskToPickUp.get(i).weight) {
-							//plan.appendPickup(task);
+							//Adding pickup action to action_list
 							action_list.add(new Action(true,false,taskToPickUp.get(i),false,null));
 							currentSpace-=taskToPickUp.get(i).weight;
+							//updating task_table and task_pickedUp
 							task_pickedUp.put(taskToPickUp.get(i),0.0);
 							task_table.remove(taskToPickUp.get(i));
 						}
@@ -206,9 +207,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				ArrayList<Task> taskToDeliver = IsThereTaskToDeliverInCity(currentCity, task_pickedUp);
 				if(taskToDeliver.size() != 0) {
 					for(int i=0;i<taskToDeliver.size();i++) {
-						//plan.appendPickup(task);
+						//Adding delivery action to action_list
 						action_list.add(new Action(false,true,taskToDeliver.get(i),false,null));
 						currentSpace+=taskToDeliver.get(i).weight;
+						//updating task_table and task_pickedUp
 						task_pickedUp.remove(taskToDeliver.get(i));
 						totalReward += taskToDeliver.get(i).reward;
 					}					
@@ -237,7 +239,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		
 		currentCity = vehicle.getCurrentCity();
 		
-		//building best plan
+		//building best plan with best action list
 		plan=BuildingPlan(currentCity, plan, bestActionList);
 		
 		return plan;
