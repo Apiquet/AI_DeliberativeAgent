@@ -132,22 +132,29 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
+		
+		//fetching all the tasks
 		for(int j=0;j<5000;j++) {	
 			for (Task task : tasks) {
-				task_table.put(task, 1.0); //1 = task has to be taken, else 0
-				//System.out.println("Task= " + task.toString());
+				task_table.put(task, 1.0);
 			}
+			//Declaring initial state with initial city, vehicle space and all the tasks
 			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
 	
+			//building the plan until there is no more task to pick up or to deliver
 			while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
-				// move: current city => pickup location
+				// moving randomly:
 				Random rand = new Random();
 				City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
-				//plan.appendMove(nextCity);
+				//adding move action to the action_list
 				action_list.add(new Action(false,false,null,true,nextCity));
+				//updating cost of the current plan
 				cost+=currentCity.distanceTo(nextCity)*vehicle.costPerKm();
+				//updating current city
 				currentCity = nextCity;
+				
+				//verifying if there is any task to pick up in the current city
 				ArrayList<Task> taskToPickUp = IsThereAvalaibleTaskInCity(currentCity,task_table);
 				if(taskToPickUp.size() != 0) {
 					for(int i=0;i<taskToPickUp.size();i++) {
@@ -160,6 +167,8 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 						}
 					}
 				}
+				
+				//verifying if there is any task to deliver in the current city
 				ArrayList<Task> taskToDeliver = IsThereTaskToDeliverInCity(currentCity, task_pickedUp);
 				if(taskToDeliver.size() != 0) {
 					for(int i=0;i<taskToDeliver.size();i++) {
@@ -169,16 +178,18 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 						task_pickedUp.remove(taskToDeliver.get(i));
 						totalReward += taskToDeliver.get(i).reward;
 					}					
-				}				
+				}	
+				
+				//updating current state and adding it to the state list
 				currentState = new State(currentCity, currentSpace, task_table);
 				this.state_list.add(currentState);
 			}
+			//calculating profit
 			profit = totalReward-cost;
-			//plan_table.put(plan,(double) profit);
+			//adding new plan found to a table
 			action_table.put(action_list, (double) cost);
-			System.out.println("Cost no: " + j + " = " + cost);
-			//System.out.println("Reward= " + totalReward);
-			//System.out.println("Profit no: " + j + " = " + profit);
+
+			//reset all the variables for the next plan discovery
 			cost = 0;
 			totalReward = 0;
 			currentSpace = vehicle.capacity();	
