@@ -118,6 +118,19 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return tasksToDeliver;
 	}
+	private ArrayList<Action> FindBestAction(HashMap<ArrayList<Action>,Double> action_table) {
+		ArrayList<Action> bestActionList = null;
+		double minCost = Double.MAX_VALUE;
+
+		for(Entry<ArrayList<Action>, Double> entry : action_table.entrySet()){
+			if(entry.getValue() < minCost){
+				minCost= entry.getValue();
+				bestActionList= entry.getKey();
+		    }
+		}
+		System.out.println("Min Cost= " + minCost);
+		return bestActionList;
+	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City currentCity = vehicle.getCurrentCity();
 		Plan plan = new Plan(currentCity);
@@ -130,7 +143,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		Action currentAction = new Action();
 		int cost=0;
 		int totalReward=0;
-		int profit=0;
+		int profit=0; 
 		int currentSpace = vehicle.capacity();
 		
 		//fetching all the tasks
@@ -197,15 +210,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			action_list = new ArrayList<Action>();
 			task_pickedUp = new Hashtable<Task,Double>();
 		}
-		ArrayList<Action> bestActionList = null;
-		double minCost = Double.MAX_VALUE;
-
-		for(Entry<ArrayList<Action>, Double> entry : action_table.entrySet()){
-			if(entry.getValue() < minCost){
-				minCost= entry.getValue();
-				bestActionList= entry.getKey();
-		    }
-		}
+		
+		//finding best action
+		ArrayList<Action> bestActionList = FindBestAction(action_table);
+		
 		currentCity = vehicle.getCurrentCity();
 		for(int i=0;i<bestActionList.size();i++) {
 			if(bestActionList.get(i).getCity()!=null) {
@@ -225,7 +233,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			}
 		}
 
-		System.out.println("Min Cost= " + minCost);
+		
 		return plan;
 	}
 
