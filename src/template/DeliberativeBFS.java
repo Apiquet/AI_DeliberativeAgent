@@ -100,13 +100,23 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		return plan;
 	}
 
-	private Task IsThereAvalaibleTaskInCity(City city, Hashtable<Task,Double> task_table) {
+	private ArrayList<Task> IsThereAvalaibleTaskInCity(City city, Hashtable<Task,Double> task_table) {
+		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
 		for(Entry<Task, Double> entry : task_table.entrySet()){
 			if(entry.getKey().pickupCity == city){
-		    	return entry.getKey();
+				tasksToPickUp.add(entry.getKey());
 		    }
 		}
-		return null;
+		return tasksToPickUp;
+	}
+	private ArrayList<Task> IsThereTaskToDeliverInCity(City city, Hashtable<Task,Double> task_pickUp) {
+		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
+		for(Entry<Task, Double> entry : task_pickUp.entrySet()){
+			if(entry.getKey().deliveryCity == city){
+				tasksToDeliver.add(entry.getKey());
+		    }
+		}
+		return tasksToDeliver;
 	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City currentCity = vehicle.getCurrentCity();
@@ -114,6 +124,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
 		HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
 		ArrayList<Action> action_list = new ArrayList<Action>();
+		Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
 		State currentState = new State();		
 		Action currentAction = new Action();
@@ -129,7 +140,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
 	
-			while(currentState.task_table.isEmpty() == false) {
+			while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
 				// move: current city => pickup location
 				Random rand = new Random();
 				City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
@@ -137,48 +148,52 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				action_list.add(new Action(false,false,null,true,nextCity));
 				cost+=currentCity.distanceTo(nextCity)*vehicle.costPerKm();
 				currentCity = nextCity;
-				Task task = IsThereAvalaibleTaskInCity(currentCity,task_table);
-				if(task != null) {
-					//plan.appendPickup(task);
-					action_list.add(new Action(true,false,task,false,null));
-					for (City city :  currentCity.pathTo(task.deliveryCity)) {
-						//plan.appendMove(city);
-						action_list.add(new Action(false,false,null,true,city));
-						cost+=currentCity.distanceTo(city)*vehicle.costPerKm();
-						//currentCity = city;
+				ArrayList<Task> taskToPickUp = IsThereAvalaibleTaskInCity(currentCity,task_table);
+				if(taskToPickUp.size() != 0) {
+					for(int i=0;i<taskToPickUp.size();i++) {
+						if(currentSpace > taskToPickUp.get(i).weight) {
+							//plan.appendPickup(task);
+							action_list.add(new Action(true,false,taskToPickUp.get(i),false,null));
+							currentSpace-=taskToPickUp.get(i).weight;
+							task_pickedUp.put(taskToPickUp.get(i),0.0);
+							task_table.remove(taskToPickUp.get(i));
+						}
 					}
-					//plan.appendDelivery(task);
-					action_list.add(new Action(false,true,task,false,null));
-					currentSpace-=task.weight;
-					// set current city
-					currentCity = task.deliveryCity;
-					totalReward += task.reward;
-					task_table.remove(task);
 				}
+				ArrayList<Task> taskToDeliver = IsThereTaskToDeliverInCity(currentCity, task_pickedUp);
+				if(taskToDeliver.size() != 0) {
+					for(int i=0;i<taskToDeliver.size();i++) {
+						//plan.appendPickup(task);
+						action_list.add(new Action(false,true,taskToDeliver.get(i),false,null));
+						currentSpace+=taskToDeliver.get(i).weight;
+						task_pickedUp.remove(taskToDeliver.get(i));
+						totalReward += taskToDeliver.get(i).reward;
+					}					
+				}				
 				currentState = new State(currentCity, currentSpace, task_table);
 				this.state_list.add(currentState);
 			}
 			profit = totalReward-cost;
 			//plan_table.put(plan,(double) profit);
-			action_table.put(action_list, (double) profit);
+			action_table.put(action_list, (double) cost);
 			System.out.println("Cost no: " + j + " = " + cost);
 			//System.out.println("Reward= " + totalReward);
-			System.out.println("Profit no: " + j + " = " + profit);
+			//System.out.println("Profit no: " + j + " = " + profit);
 			cost = 0;
 			totalReward = 0;
 			currentSpace = vehicle.capacity();	
 			currentCity = vehicle.getCurrentCity();
 			action_list = new ArrayList<Action>();
+			task_pickedUp = new Hashtable<Task,Double>();
 		}
 		ArrayList<Action> bestActionList = null;
-		double bestProfit = 0;
+		double minCost = Double.MAX_VALUE;
 
 		for(Entry<ArrayList<Action>, Double> entry : action_table.entrySet()){
-			if(entry.getValue() > bestProfit){
-				bestProfit= entry.getValue();
+			if(entry.getValue() < minCost){
+				minCost= entry.getValue();
 				bestActionList= entry.getKey();
 		    }
-			System.out.println("Best plan search= " + bestProfit);
 		}
 		currentCity = vehicle.getCurrentCity();
 		for(int i=0;i<bestActionList.size();i++) {
@@ -199,7 +214,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			}
 		}
 
-		System.out.println("Best profit= " + bestProfit);
+		System.out.println("Min Cost= " + minCost);
 		return plan;
 	}
 
