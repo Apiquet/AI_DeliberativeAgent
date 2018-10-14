@@ -131,6 +131,27 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		System.out.println("Min Cost= " + minCost);
 		return bestActionList;
 	}
+	private Plan BuildingPlan(City initialCity, Plan plan, ArrayList<Action> action_list) {
+		City currentCity = initialCity;
+		for(int i=0;i<action_list.size();i++) {
+			if(action_list.get(i).getCity()!=null) {
+				//System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
+				currentCity = action_list.get(i).getCity();
+				plan.appendMove(action_list.get(i).getCity());			
+			}
+			else {
+				if(action_list.get(i).getPickup()) {
+					//System.out.println("Pickup= " + bestActionList.get(i).getTask());
+					plan.appendPickup(action_list.get(i).getTask());
+				}
+				else {					
+					//System.out.println("deliver= " + bestActionList.get(i).getTask());
+					plan.appendDelivery(action_list.get(i).getTask());
+				}
+			}
+		}
+		return plan;
+	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		City currentCity = vehicle.getCurrentCity();
 		Plan plan = new Plan(currentCity);
@@ -147,7 +168,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		int currentSpace = vehicle.capacity();
 		
 		//fetching all the tasks
-		for(int j=0;j<5000;j++) {	
+		for(int j=0;j<100000;j++) {	
 			for (Task task : tasks) {
 				task_table.put(task, 1.0);
 			}
@@ -215,24 +236,9 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		ArrayList<Action> bestActionList = FindBestAction(action_table);
 		
 		currentCity = vehicle.getCurrentCity();
-		for(int i=0;i<bestActionList.size();i++) {
-			if(bestActionList.get(i).getCity()!=null) {
-				//System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
-				currentCity = bestActionList.get(i).getCity();
-				plan.appendMove(bestActionList.get(i).getCity());			
-			}
-			else {
-				if(bestActionList.get(i).getPickup()) {
-					//System.out.println("Pickup= " + bestActionList.get(i).getTask());
-					plan.appendPickup(bestActionList.get(i).getTask());
-				}
-				else {					
-					//System.out.println("deliver= " + bestActionList.get(i).getTask());
-					plan.appendDelivery(bestActionList.get(i).getTask());
-				}
-			}
-		}
-
+		
+		//building best plan
+		plan=BuildingPlan(currentCity, plan, bestActionList);
 		
 		return plan;
 	}
