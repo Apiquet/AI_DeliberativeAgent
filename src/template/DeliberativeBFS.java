@@ -100,23 +100,43 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		return plan;
 	}
 
-	private ArrayList<Task> IsThereAvalaibleTaskInCity(City city, Hashtable<Task,Double> task_table) {
+	private void PickUpTask(City city, Hashtable<Task,Double> task_table, Hashtable<Task,Double> task_pickedUp,ArrayList<Action> action_list, int currentSpace) {
 		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
 		for(Entry<Task, Double> entry : task_table.entrySet()){
 			if(entry.getKey().pickupCity == city){
 				tasksToPickUp.add(entry.getKey());
 		    }
 		}
-		return tasksToPickUp;
+		if(tasksToPickUp.size() != 0) { 
+			for(int i=0;i<tasksToPickUp.size();i++) {
+				if(currentSpace > tasksToPickUp.get(i).weight) {
+					//Adding pickup action to action_list
+					action_list.add(new Action(true,false,tasksToPickUp.get(i),false,null));
+					currentSpace-=tasksToPickUp.get(i).weight;
+					//updating task_table and task_pickedUp
+					task_pickedUp.put(tasksToPickUp.get(i),0.0);
+					task_table.remove(tasksToPickUp.get(i));
+				}
+			}
+		}
 	}
-	private ArrayList<Task> IsThereTaskToDeliverInCity(City city, Hashtable<Task,Double> task_pickUp) {
+	private void DeliverTask(City city, Hashtable<Task,Double> task_pickedUp, ArrayList<Action> action_list, int currentSpace, int totalReward) {
 		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
-		for(Entry<Task, Double> entry : task_pickUp.entrySet()){
+		for(Entry<Task, Double> entry : task_pickedUp.entrySet()){
 			if(entry.getKey().deliveryCity == city){
 				tasksToDeliver.add(entry.getKey());
 		    }
 		}
-		return tasksToDeliver;
+		if(tasksToDeliver.size() != 0) {
+			for(int i=0;i<tasksToDeliver.size();i++) {
+				//Adding delivery action to action_list
+				action_list.add(new Action(false,true,tasksToDeliver.get(i),false,null));
+				currentSpace+=tasksToDeliver.get(i).weight;
+				//updating task_table and task_pickedUp
+				task_pickedUp.remove(tasksToDeliver.get(i));
+				totalReward += tasksToDeliver.get(i).reward;
+			}				
+		}			
 	}
 	private ArrayList<Action> FindBestAction(HashMap<ArrayList<Action>,Double> action_table) {
 		ArrayList<Action> bestActionList = null;
@@ -153,6 +173,8 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		return plan;
 	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
+		
+		//Variables
 		City currentCity = vehicle.getCurrentCity();
 		Plan plan = new Plan(currentCity);
 		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
@@ -168,16 +190,18 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		int currentSpace = vehicle.capacity();
 		
 		//fetching all the tasks
-		for(int j=0;j<100000;j++) {	
+		for(int j=0;j<2000;j++) {	
 			for (Task task : tasks) {
 				task_table.put(task, 1.0);
 			}
+			
 			//Declaring initial state with initial city, vehicle space and all the tasks
 			currentState = new State(currentCity, currentSpace, task_table);
 			this.state_list.add(currentState);
 	
 			//building the plan until there is no more task to pick up or to deliver
 			while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
+				
 				// moving randomly:
 				Random rand = new Random();
 				City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
@@ -189,39 +213,17 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				currentCity = nextCity;
 				
 				//verifying if there is any task to pick up in the current city
-				ArrayList<Task> taskToPickUp = IsThereAvalaibleTaskInCity(currentCity,task_table);
-				if(taskToPickUp.size() != 0) {
-					for(int i=0;i<taskToPickUp.size();i++) {
-						if(currentSpace > taskToPickUp.get(i).weight) {
-							//Adding pickup action to action_list
-							action_list.add(new Action(true,false,taskToPickUp.get(i),false,null));
-							currentSpace-=taskToPickUp.get(i).weight;
-							//updating task_table and task_pickedUp
-							task_pickedUp.put(taskToPickUp.get(i),0.0);
-							task_table.remove(taskToPickUp.get(i));
-						}
-					}
-				}
+				PickUpTask(currentCity,task_table,task_pickedUp, action_list, currentSpace);
+				
 				
 				//verifying if there is any task to deliver in the current city
-				ArrayList<Task> taskToDeliver = IsThereTaskToDeliverInCity(currentCity, task_pickedUp);
-				if(taskToDeliver.size() != 0) {
-					for(int i=0;i<taskToDeliver.size();i++) {
-						//Adding delivery action to action_list
-						action_list.add(new Action(false,true,taskToDeliver.get(i),false,null));
-						currentSpace+=taskToDeliver.get(i).weight;
-						//updating task_table and task_pickedUp
-						task_pickedUp.remove(taskToDeliver.get(i));
-						totalReward += taskToDeliver.get(i).reward;
-					}					
-				}	
+				DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
 				
 				//updating current state and adding it to the state list
 				currentState = new State(currentCity, currentSpace, task_table);
 				this.state_list.add(currentState);
 			}
-			//calculating profit
-			profit = totalReward-cost;
+			
 			//adding new plan found to a table
 			action_table.put(action_list, (double) cost);
 
