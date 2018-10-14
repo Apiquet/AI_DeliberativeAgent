@@ -101,7 +101,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		return plan;
 	}
 
-	private void PickUpTask(City city, Hashtable<Task,Double> task_table, Hashtable<Task,Double> task_pickedUp,ArrayList<Action> action_list, int currentSpace) {
+	private void PickUpTask(City city, Hashtable<Task,Double> task_table, Hashtable<Task,Double> task_pickedUp,ArrayList<Action> action_list, AtomicInteger currentSpace) {
 		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
 		for(Entry<Task, Double> entry : task_table.entrySet()){
 			if(entry.getKey().pickupCity == city){
@@ -110,10 +110,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		if(tasksToPickUp.size() != 0) { 
 			for(int i=0;i<tasksToPickUp.size();i++) {
-				if(currentSpace > tasksToPickUp.get(i).weight) {
+				if(currentSpace.get() > tasksToPickUp.get(i).weight) {
 					//Adding pickup action to action_list
 					action_list.add(new Action(true,false,tasksToPickUp.get(i),false,null));
-					currentSpace-=tasksToPickUp.get(i).weight;
+					currentSpace.set(currentSpace.get()-tasksToPickUp.get(i).weight);
 					//updating task_table and task_pickedUp
 					task_pickedUp.put(tasksToPickUp.get(i),0.0);
 					task_table.remove(tasksToPickUp.get(i));
@@ -121,7 +121,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			}
 		}
 	}
-	private void DeliverTask(City city, Hashtable<Task,Double> task_pickedUp, ArrayList<Action> action_list, int currentSpace, int totalReward) {
+	private void DeliverTask(City city, Hashtable<Task,Double> task_pickedUp, ArrayList<Action> action_list, AtomicInteger currentSpace, AtomicInteger totalReward) {
 		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
 		for(Entry<Task, Double> entry : task_pickedUp.entrySet()){
 			if(entry.getKey().deliveryCity == city){
@@ -132,10 +132,10 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			for(int i=0;i<tasksToDeliver.size();i++) {
 				//Adding delivery action to action_list
 				action_list.add(new Action(false,true,tasksToDeliver.get(i),false,null));
-				currentSpace+=tasksToDeliver.get(i).weight;
+				currentSpace.set(currentSpace.get()+tasksToDeliver.get(i).weight);
 				//updating task_table and task_pickedUp
 				task_pickedUp.remove(tasksToDeliver.get(i));
-				totalReward += tasksToDeliver.get(i).reward;
+				totalReward.set((int) (totalReward.get()+tasksToDeliver.get(i).reward));
 			}				
 		}			
 	}
@@ -187,13 +187,13 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return plan;
 	}
-	private void resetVariables(int cost, int totalReward, int currentSpace, City currentCity, ArrayList<Action> action_list, Hashtable<Task,Double> task_pickedUp, Vehicle vehicle) {
-		cost = 0;
-		totalReward = 0;
-		currentSpace = vehicle.capacity();	
-		currentCity = vehicle.getCurrentCity();
-		action_list = new ArrayList<Action>();
-		task_pickedUp = new Hashtable<Task,Double>();
+	private City resetVariables(AtomicInteger cost, AtomicInteger totalReward, AtomicInteger currentSpace, City currentCity, ArrayList<Action> action_list, Hashtable<Task,Double> task_pickedUp, Vehicle vehicle) {
+		cost.set(0);
+		totalReward.set(0);
+		currentSpace.set(vehicle.capacity());	
+		action_list.clear();
+		task_pickedUp.clear();
+		return vehicle.getCurrentCity();
 	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
 		
@@ -208,11 +208,11 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		State currentState = new State();		
 		Action currentAction = new Action();
 		AtomicInteger cost = new AtomicInteger(0);
-		int totalReward=0;
+		AtomicInteger totalReward = new AtomicInteger(0);
 		int profit=0; 
-		int currentSpace = vehicle.capacity();
-		int numberOfPlanToTry = 2000;
-		
+		AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
+		int numberOfPlanToTry = 10000;
+
 		for(int j=0;j<numberOfPlanToTry;j++) {	
 			//fetching all the tasks
 			for (Task task : tasks) {
@@ -220,7 +220,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			}
 			
 			//Declaring initial state with initial city, vehicle space and all the tasks
-			currentState = new State(currentCity, currentSpace, task_table);
+			currentState = new State(currentCity, currentSpace.get(), task_table);
 			this.state_list.add(currentState);
 	
 			//building the plan until there is no more task to pick up or to deliver
@@ -236,7 +236,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
 				
 				//updating current state and adding it to the state list
-				currentState = new State(currentCity, currentSpace, task_table);
+				currentState = new State(currentCity, currentSpace.get(), task_table);
 				this.state_list.add(currentState);
 			}
 			
@@ -244,13 +244,13 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			action_table.put(action_list, (double) cost.get());
 
 			//reset all the variables for the next plan discovery
-			//resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
+			//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
 			cost.set(0);
-			totalReward = 0;
-			currentSpace = vehicle.capacity();	
+			totalReward.set(0);
+			currentSpace.set(vehicle.capacity());	
 			currentCity = vehicle.getCurrentCity();
 			action_list = new ArrayList<Action>();
-			task_pickedUp = new Hashtable<Task,Double>();
+			task_pickedUp = new Hashtable<Task,Double>();			
 		}
 		
 		//finding best action

@@ -17,21 +17,20 @@
 				<task id="5" pickup="Sion" delivery="Basel" weight="3" reward="46991"/>
 			</tasks>
 			<events>
-				<event id="0" time="0" vehicle="Vehicle 1" move="Neuchâtel"/>
-				<event id="1" time="1111111077" vehicle="Vehicle 1" move="Bern"/>
-				<event id="2" time="1777777717" vehicle="Vehicle 1" move="Aarau"/>
-				<event id="3" time="2999999881" vehicle="Vehicle 1" pickup="0"/>
-				<event id="4" time="3299999871" vehicle="Vehicle 1" move="Zürich"/>
+				<event id="0" time="0" vehicle="Vehicle 1" move="Sion"/>
+				<event id="1" time="1666666608" vehicle="Vehicle 1" pickup="2"/>
+				<event id="2" time="1966666595" vehicle="Vehicle 1" pickup="5"/>
+				<event id="3" time="2266666583" vehicle="Vehicle 1" move="Lausanne"/>
 			</events>
 		</round>
 	</rounds>
 	<statistics>
 		<stat rank="1" agent="deliberative-bfs">
 			<total-tasks value="6"/>
-			<total-distance value="330.0"/>
-			<total-cost value="1650"/>
+			<total-distance value="300.0"/>
+			<total-cost value="1500"/>
 			<total-reward value="0"/>
-			<total-profit value="-1650"/>
+			<total-profit value="-1500"/>
 		</stat>
 	</statistics>
 </history>
