@@ -108,6 +108,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
 		State currentState = new State();
 		int cost=0;
+		int kmDone=0;
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
@@ -122,16 +123,18 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			for (City city : current.pathTo(task.pickupCity)) {
 				plan.appendMove(city);
 				cost+=current.distanceTo(city)*vehicle.costPerKm();
+				kmDone+=current.distanceTo(city);
 				current = city;
 			}
 
 			plan.appendPickup(task);
-			currentSpace+=task.weight;
+			currentSpace+=task.weight; 
 			
 			// move: pickup location => delivery location
 			for (City city : task.path()) {
 				plan.appendMove(city);
 				cost+=current.distanceTo(city)*vehicle.costPerKm();
+				kmDone+=current.distanceTo(city);
 				current = city;
 			}
 
@@ -150,11 +153,17 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		/*System.out.println("Cost= " + cost);
 		System.out.println("Reward= " + totalReward);
 		System.out.println("Profit= " + profit);*/
+		
+		if(currentState.task_table.isEmpty()) {
+			System.out.println("Naive agent results:");
+			System.out.println("km done=" + kmDone);
+			System.out.println("Cost=" + cost);;
+			System.out.println("Profit=" + profit);
+		}
 		cost = 0;
+		kmDone = 0;
 		totalReward = 0;
 		currentSpace = 0;
-		if(currentState.task_table.isEmpty()) System.out.println("Bingo");
-
 		
 		Plan bestPlan = null;
 		double minCost = Double.MAX_VALUE;
