@@ -132,7 +132,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		int totalReward=0;
 		int profit=0;
 		int currentSpace = vehicle.capacity();
-		for(int j=0;j<2000;j++) {	
+		for(int j=0;j<5000;j++) {	
 			for (Task task : tasks) {
 				task_table.put(task, 1.0); //1 = task has to be taken, else 0
 				//System.out.println("Task= " + task.toString());
