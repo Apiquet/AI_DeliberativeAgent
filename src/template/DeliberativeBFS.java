@@ -195,7 +195,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		task_pickedUp.clear();
 		return vehicle.getCurrentCity();
 	}
-	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
+	private Plan BFSRandPlan(Vehicle vehicle, TaskSet tasks) {
 		
 		//Variables
 		City currentCity = vehicle.getCurrentCity();
@@ -263,17 +263,84 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		
 		return plan;
 	}
-
-	@Override
-	public void planCancelled(TaskSet carriedTasks) {
+	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
+			
+			//Variables
+			City currentCity = vehicle.getCurrentCity();
+			Plan plan = new Plan(currentCity);
+			HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
+			HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
+			ArrayList<Action> action_list = new ArrayList<Action>();
+			Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
+			Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
+			State currentState = new State();		
+			Action currentAction = new Action();
+			AtomicInteger cost = new AtomicInteger(0);
+			AtomicInteger totalReward = new AtomicInteger(0);
+			int profit=0; 
+			AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
+			int numberOfPlanToTry = 10000;
+	
+			for(int j=0;j<numberOfPlanToTry;j++) {	
+				//fetching all the tasks
+				for (Task task : tasks) {
+					task_table.put(task, 1.0);
+				}
+				
+				//Declaring initial state with initial city, vehicle space and all the tasks
+				currentState = new State(currentCity, currentSpace.get(), task_table);
+				this.state_list.add(currentState);
 		
-		if (!carriedTasks.isEmpty()) {
-			// This cannot happen for this simple agent, but typically
-			// you will need to consider the carriedTasks when the next
-			// plan is computed.
+				//building the plan until there is no more task to pick up or to deliver
+				while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
+					
+					// moving randomly:
+					currentCity = MovingToRandomCity(action_list, cost, currentCity, vehicle);
+					
+					//verifying if there is any task to pick up in the current city
+					PickUpTask(currentCity,task_table,task_pickedUp, action_list, currentSpace);				
+					
+					//verifying if there is any task to deliver in the current city
+					DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
+					
+					//updating current state and adding it to the state list
+					currentState = new State(currentCity, currentSpace.get(), task_table);
+					this.state_list.add(currentState);
+				}
+				
+				//adding new plan found to a table
+				action_table.put(action_list, (double) cost.get());
+	
+				//reset all the variables for the next plan discovery
+				//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
+				cost.set(0);
+				totalReward.set(0);
+				currentSpace.set(vehicle.capacity());	
+				currentCity = vehicle.getCurrentCity();
+				action_list = new ArrayList<Action>();
+				task_pickedUp = new Hashtable<Task,Double>();			
+			}
+			
+			//finding best action
+			ArrayList<Action> bestActionList = FindBestAction(action_table);
+			
+			currentCity = vehicle.getCurrentCity();
+			
+			//building best plan with best action list
+			plan=BuildingPlan(currentCity, plan, bestActionList);
+			
+			return plan;
+		}
+		@Override
+		public void planCancelled(TaskSet carriedTasks) {
+			
+			if (!carriedTasks.isEmpty()) {
+				// This cannot happen for this simple agent, but typically
+				// you will need to consider the carriedTasks when the next
+				// plan is computed.
+			}
 		}
 	}
-}
 class Action{
 	boolean pickup=false;
 	boolean delivery=false;
