@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.JOptionPane;
 
@@ -31,7 +33,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 	/* Environment */
 	Topology topology;
 	TaskDistribution td;
-	ArrayList<State> state_list= new ArrayList<State>();
+	ArrayList<State> finalstate_list= new ArrayList<State>();
 
 	/* the properties of the agent */
 	Agent agent;
@@ -56,7 +58,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		
 		// ...
 	}
-	
 	@Override
 	public Plan plan(Vehicle vehicle, TaskSet tasks) {
 		Plan plan;
@@ -77,7 +78,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}		
 		return plan;
 	}
-	
 	private Plan naivePlan(Vehicle vehicle, TaskSet tasks) {
 		City current = vehicle.getCurrentCity();
 		Plan plan = new Plan(current);
@@ -100,103 +100,293 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return plan;
 	}
-	
-	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
-		City current = vehicle.getCurrentCity();
-		Plan plan = new Plan(current);
-		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();		
-		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
-		State currentState = new State();
-		int cost=0;
-		int kmDone=0;
-		int totalReward=0;
-		int profit=0;
-		int currentSpace = vehicle.capacity();
-		
-		for (Task task : tasks) {
-			task_table.put(task, 1.0); //1 = task has to be taken, else 0
-		}
-		this.state_list.add(new State(current, currentSpace, task_table));
 
-		for (Task task : tasks) {
-			// move: current city => pickup location
-			for (City city : current.pathTo(task.pickupCity)) {
-				plan.appendMove(city);
-				cost+=current.distanceTo(city)*vehicle.costPerKm();
-				kmDone+=current.distanceTo(city);
-				current = city;
-			}
-
-			plan.appendPickup(task);
-			currentSpace+=task.weight; 
-			
-			// move: pickup location => delivery location
-			for (City city : task.path()) {
-				plan.appendMove(city);
-				cost+=current.distanceTo(city)*vehicle.costPerKm();
-				kmDone+=current.distanceTo(city);
-				current = city;
-			}
-
-			plan.appendDelivery(task);
-			currentSpace-=task.weight;
-
-			// set current city
-			current = task.deliveryCity;
-			totalReward += task.reward;
-			task_table.remove(task);
-			currentState = new State(current, currentSpace, task_table);
-			this.state_list.add(currentState);
-		}
-		profit = totalReward-cost;
-		plan_table.put(plan,(double) profit);
-		/*System.out.println("Cost= " + cost);
-		System.out.println("Reward= " + totalReward);
-		System.out.println("Profit= " + profit);*/
-		
-		if(currentState.task_table.isEmpty()) {
-			System.out.println("Naive agent results:");
-			System.out.println("km done=" + kmDone);
-			System.out.println("Cost=" + cost);;
-			System.out.println("Profit=" + profit);
-		}
-		cost = 0;
-		kmDone = 0;
-		totalReward = 0;
-		currentSpace = 0;
-		
-		Plan bestPlan = null;
-		double minCost = Double.MAX_VALUE;
-
-		for(Entry<Plan, Double> entry : plan_table.entrySet()){
-			if(entry.getValue() < minCost){
-		    	minCost= entry.getValue();
-		    	bestPlan= entry.getKey();
+	private void PickUpTask(City city, Hashtable<Task,Double> task_table, Hashtable<Task,Double> task_pickedUp,ArrayList<Action> action_list, AtomicInteger currentSpace) {
+		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
+		for(Entry<Task, Double> entry : task_table.entrySet()){
+			if(entry.getKey().pickupCity == city){
+				tasksToPickUp.add(entry.getKey());
+				entry.setValue((double) 0);
 		    }
 		}
-		if(bestPlan == null) throw new AssertionError("Best Plan not find.");
-		return bestPlan;
-	}
-
-	@Override
-	public void planCancelled(TaskSet carriedTasks) {
-		
-		if (!carriedTasks.isEmpty()) {
-			// This cannot happen for this simple agent, but typically
-			// you will need to consider the carriedTasks when the next
-			// plan is computed.
+		if(tasksToPickUp.size() != 0) { 
+			for(int i=0;i<tasksToPickUp.size();i++) {
+				if(currentSpace.get() > tasksToPickUp.get(i).weight) {
+					//Adding pickup action to action_list
+					action_list.add(new Action(true,false,tasksToPickUp.get(i),false,null));
+					currentSpace.set(currentSpace.get()-tasksToPickUp.get(i).weight);
+					//updating task_table and task_pickedUp
+					task_pickedUp.put(tasksToPickUp.get(i),0.0);
+					task_table.remove(tasksToPickUp.get(i));
+				}
+			}
 		}
 	}
-}
+	private void DeliverTask(City city, Hashtable<Task,Double> task_pickedUp, ArrayList<Action> action_list, AtomicInteger currentSpace, AtomicInteger totalReward) {
+		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
+		for(Entry<Task, Double> entry : task_pickedUp.entrySet()){
+			if(entry.getKey().deliveryCity == city){
+				tasksToDeliver.add(entry.getKey());
+		    }
+		}
+		if(tasksToDeliver.size() != 0) {
+			for(int i=0;i<tasksToDeliver.size();i++) {
+				//Adding delivery action to action_list
+				action_list.add(new Action(false,true,tasksToDeliver.get(i),false,null));
+				currentSpace.set(currentSpace.get()+tasksToDeliver.get(i).weight);
+				//updating task_table and task_pickedUp
+				task_pickedUp.remove(tasksToDeliver.get(i));
+				totalReward.set((int) (totalReward.get()+tasksToDeliver.get(i).reward));
+			}				
+		}			
+	}
+	private City MovingToRandomCity(ArrayList<Action> action_list, AtomicInteger cost, City currentCity, Vehicle vehicle) {
+		// moving randomly:
+		Random rand = new Random();
+		City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
+		//adding move action to the action_list
+		action_list.add(new Action(false,false,null,true,nextCity));
+		//updating cost of the current plan
+		cost.set((int) (cost.get()+currentCity.distanceTo(nextCity)*vehicle.costPerKm()));
+		
+		//updating current city
+		currentCity = nextCity;	
+		return currentCity;
+	}
+ 
+	private ArrayList<Action> FindBestAction(HashMap<ArrayList<Action>,Double> action_table) {
+		ArrayList<Action> bestActionList = null;
+		double minCost = Double.MAX_VALUE;
 
+		for(Entry<ArrayList<Action>, Double> entry : action_table.entrySet()){
+			if(entry.getValue() < minCost){
+				minCost= entry.getValue();
+				bestActionList= entry.getKey();
+		    }
+		}
+		System.out.println("Min Cost= " + minCost);
+		return bestActionList;
+	}
+	private Plan BuildingPlan(City initialCity, Plan plan, ArrayList<Action> action_list) {
+		City currentCity = initialCity;
+		for(int i=0;i<action_list.size();i++) {
+			if(action_list.get(i).getCity()!=null) {
+				//System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
+				currentCity = action_list.get(i).getCity();
+				plan.appendMove(action_list.get(i).getCity());			
+			}
+			else {
+				if(action_list.get(i).getPickup()) {
+					//System.out.println("Pickup= " + bestActionList.get(i).getTask());
+					plan.appendPickup(action_list.get(i).getTask());
+				}
+				else {					
+					//System.out.println("deliver= " + bestActionList.get(i).getTask());
+					plan.appendDelivery(action_list.get(i).getTask());
+				}
+			}
+		}
+		return plan;
+	}
+	private City resetVariables(AtomicInteger cost, AtomicInteger totalReward, AtomicInteger currentSpace, City currentCity, ArrayList<Action> action_list, Hashtable<Task,Double> task_pickedUp, Vehicle vehicle) {
+		cost.set(0);
+		totalReward.set(0);
+		currentSpace.set(vehicle.capacity());	
+		action_list.clear();
+		task_pickedUp.clear();
+		return vehicle.getCurrentCity();
+	}
+	
+	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) {
+			
+			//Variables
+			City currentCity = vehicle.getCurrentCity();
+			Plan plan = new Plan(currentCity);
+			HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
+			HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
+			ArrayList<Action> action_list = new ArrayList<Action>();
+			ArrayList<State> state_list = new ArrayList<State>();
+			Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
+			Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
+			State currentState = new State();		
+			Action currentAction = new Action();
+			AtomicInteger cost = new AtomicInteger(0);
+			AtomicInteger totalReward = new AtomicInteger(0);
+			int profit=0; 
+			AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
+			int numberOfPlanToTry = 10000;
+			//fetching all the tasks
+			for (Task task : tasks) {
+				task_table.put(task, 1.0);
+			}	
+				
+			//Declaring initial state with initial city, vehicle space and all the tasks
+			currentState = new State(currentCity, currentSpace.get(), task_table, action_list);
+			state_list.add(currentState);
+	
+			//building the plan until there is no more task to pick up or to deliver
+			while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
+				
+				PickUpTask(currentCity, task_table, task_pickedUp, action_list, currentSpace);
+				DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
+				// moving to pick up or deliver tasks
+				for(Entry<Task, Double> entry : task_table.entrySet()){
+					for (City city : currentCity.pathTo(entry.getKey().pickupCity))
+						action_list.add(new Action(false,false,null,true,city));
+				}
+				for(Entry<Task, Double> entry : task_pickedUp.entrySet()){
+					for (City city : currentCity.pathTo(entry.getKey().pickupCity))
+						action_list.add(new Action(false,false,null,true,city));
+				}
+				
+				//updating current state and adding it to the state list
+				currentState = new State(currentCity, currentSpace.get(), task_table, action_list);
+				state_list.add(currentState);
+			}
+			
+			//adding new plan found to a table
+			action_table.put(action_list, (double) cost.get());
+
+			//reset all the variables for the next plan discovery
+			//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
+			cost.set(0);
+			totalReward.set(0);
+			currentSpace.set(vehicle.capacity());	
+			currentCity = vehicle.getCurrentCity();
+			action_list = new ArrayList<Action>();
+			task_pickedUp = new Hashtable<Task,Double>();			
+			
+			
+			//finding best action
+			ArrayList<Action> bestActionList = FindBestAction(action_table);
+			
+			currentCity = vehicle.getCurrentCity();
+			
+			//building best plan with best action list
+			plan=BuildingPlan(currentCity, plan, bestActionList);
+			
+			return plan;
+		}
+		@Override
+		public void planCancelled(TaskSet carriedTasks) {
+			
+			if (!carriedTasks.isEmpty()) {
+				// This cannot happen for this simple agent, but typically
+				// you will need to consider the carriedTasks when the next
+				// plan is computed.
+			}
+		}
+		/*private Plan BFSRandPlan(Vehicle vehicle, TaskSet tasks) {
+			
+			//Variables
+			City currentCity = vehicle.getCurrentCity();
+			Plan plan = new Plan(currentCity);
+			HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
+			HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
+			ArrayList<Action> action_list = new ArrayList<Action>();
+			Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
+			Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
+			State currentState = new State();		
+			Action currentAction = new Action();
+			AtomicInteger cost = new AtomicInteger(0);
+			AtomicInteger totalReward = new AtomicInteger(0);
+			int profit=0; 
+			AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
+			int numberOfPlanToTry = 10000;
+
+			for(int j=0;j<numberOfPlanToTry;j++) {	
+				//fetching all the tasks
+				for (Task task : tasks) {
+					task_table.put(task, 1.0);
+				}
+				
+				//Declaring initial state with initial city, vehicle space and all the tasks
+				currentState = new State(currentCity, currentSpace.get(), task_table);
+				this.state_list.add(currentState);
+		
+				//building the plan until there is no more task to pick up or to deliver
+				while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
+					
+					// moving randomly:
+					currentCity = MovingToRandomCity(action_list, cost, currentCity, vehicle);
+					
+					//verifying if there is any task to pick up in the current city
+					PickUpTask(currentCity,task_table,task_pickedUp, action_list, currentSpace);				
+					
+					//verifying if there is any task to deliver in the current city
+					DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
+					
+					//updating current state and adding it to the state list
+					currentState = new State(currentCity, currentSpace.get(), task_table);
+					this.state_list.add(currentState);
+				}
+				
+				//adding new plan found to a table
+				action_table.put(action_list, (double) cost.get());
+
+				//reset all the variables for the next plan discovery
+				//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
+				cost.set(0);
+				totalReward.set(0);
+				currentSpace.set(vehicle.capacity());	
+				currentCity = vehicle.getCurrentCity();
+				action_list = new ArrayList<Action>();
+				task_pickedUp = new Hashtable<Task,Double>();			
+			}
+			
+			//finding best action
+			ArrayList<Action> bestActionList = FindBestAction(action_table);
+			
+			currentCity = vehicle.getCurrentCity();
+			
+			//building best plan with best action list
+			plan=BuildingPlan(currentCity, plan, bestActionList);
+			
+			return plan;
+		}*/
+	}
+class Action{
+	boolean pickup=false;
+	boolean delivery=false;
+	Task task=null;
+	boolean move=false;
+	City city = null;
+	public Action(boolean pickup,boolean delivery, Task task, boolean move, City city) {				
+		this.pickup = pickup;
+		this.delivery = delivery;
+		this.task = task;
+		this.move = move;		
+		this.city = city;				
+	}
+	public Action() {					
+	}
+	public boolean getPickup() {
+		return this.pickup;
+	}
+	public boolean getDelivery() {
+		return this.delivery;
+	}
+	public boolean getMove() {
+		return this.move;
+	}
+	public Task getTask() {
+		return this.task;
+	}
+	public City getCity() {
+		return this.city;
+	}
+}
 class State {
 	private City currentCity;
 	private int availableSpace;
 	Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
-	public State(City currentcity, int availableSpace, Hashtable<Task,Double> task_table) {				
+	ArrayList<Action> action_list = new ArrayList<Action>();
+
+	public State(City currentcity, int availableSpace, Hashtable<Task,Double> task_table, ArrayList<Action> action_list) {				
 		this.currentCity = currentcity;
 		this.availableSpace = availableSpace;
-		this.task_table = task_table;				
+		this.task_table = task_table;		
+		this.action_list = action_list;				
 	}
 	public State() {				
 						
@@ -208,8 +398,11 @@ class State {
 	public int getAvailableSpace() {
 		return this.availableSpace;
 	}
-	
+
 	public Hashtable<Task,Double> getTaskTable() {
 		return this.task_table;
+	}
+	public ArrayList<Action> getActionTable() {
+		return this.action_list;
 	}
 }
