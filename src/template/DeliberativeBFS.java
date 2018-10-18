@@ -41,7 +41,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 
 	/* the planning class */
 	Algorithm algorithm;
-	
+	boolean debug = false;
 	@Override
 	public void setup(Topology topology, TaskDistribution td, Agent agent) {
 		this.topology = topology;
@@ -170,7 +170,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 
 		for(int i=0;i<state_list.size();i++){
 			if(state_list.get(i).getCost() < minCost){
-				minCost = state_list.get(i).getCost();
+				minCost = state_list.get(i).getCost();	
 				bestActionList= state_list.get(i).getActionList();
 		    }
 		}
@@ -206,6 +206,26 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		task_pickedUp.clear();
 		return vehicle.getCurrentCity();
 	}
+	private boolean filterStateList(ArrayList<State> state_list) {
+		int cost = Integer.MAX_VALUE;
+		for(int i=0;i<state_list.size();i++) {
+			if(state_list.get(i).getCost()<cost) cost=state_list.get(i).getCost();
+			else state_list.remove(i);
+		}
+		int emptyState = 0;
+		for(int i=0;i<state_list.size();i++) {
+			if(state_list.get(i).getTaskTable().isEmpty()) emptyState++;;
+		}
+		if(state_list.size() == emptyState) return false;
+		return true;
+	}
+	private boolean isStateListTasksNotEmpty(ArrayList<State> state_list) {
+		boolean bool = false;
+		for(int i=0;i<state_list.size();i++) {
+			if(!state_list.get(i).getTaskTable().isEmpty()) bool=true;
+		}
+		return bool;
+	}
 	
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {
 			
@@ -232,78 +252,115 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		//Declaring initial state with initial city, vehicle space and all the tasks
 		currentState = new State(currentCity, currentSpace.get(), task_table, action_list, 0);
 		state_list.add(currentState);
-		System.out.println("Initial State number= " + state_list.size());
+		if(debug) System.out.println("Initial State number= " + state_list.size());
 		int count = 0;
 		int state_number = 0;
+		boolean whileBool = true;
 		//building the plan until there is no more task to pick up or to deliver
-		while(finalstate_list.isEmpty()) {
+		while(whileBool) {
+			//whileBool = filterStateList(state_list);
+			whileBool = isStateListTasksNotEmpty(state_list);
 			state_number=state_list.size();
-			System.out.println("While loop number= " + count);
-			for(int i=0;i<state_number;i++) {
-				System.out.println("for loop number= " + i);
-				System.out.println("State number= " + state_number);
-				for (Entry<Task, Double> entry : state_list.get(i).task_table.entrySet()) {
-					System.out.println("Task to go to= " + entry.toString());
-					State newState = state_list.get(i).clone();
-					City final_City = newState.getCurrentCity();
-					int cost = 0;
-					if(entry.getValue() == 1 && entry.getKey().weight < newState.getCurrentSpace()) {
-						// move: current city => pickup location
-						System.out.println("Pick up= " + entry.toString());
-						System.out.println("Current city= " + newState.getCurrentCity() + " Going to= " + entry.getKey().pickupCity);
-						for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
-							System.out.println("Going to= " + entry.getKey().pickupCity + " from: " + final_City + " by:" + city);
-							newState.action_list.add(new Action(false,false,null,true,city));
-							newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-							final_City = city;
+			if(debug) System.out.println("*");
+			if(debug) System.out.println("*");
+			if(debug) System.out.println("********************************");
+			if(debug) System.out.println("********************************");
+			if(debug) System.out.println("While loop number= " + count);			
+			if(debug) System.out.println("********************************");
+			if(debug) System.out.println("********************************");
+			if(debug) System.out.println("*");
+			if(debug) System.out.println("*");
+			for(int i=0;i<state_number;i++) {	
+					
+				if(debug) System.out.println("*");
+				if(debug) System.out.println("********************************");
+				if(debug) System.out.println("for loop number= " + i);
+				if(debug) System.out.println("********************************");
+				if(debug) System.out.println("*");
+				if(debug) System.out.println("State number= " + state_number);
+					for (Entry<Task, Double> entry : state_list.get(i).task_table.entrySet()) {
+						if(debug) System.out.println("Current state:");
+						if(debug) System.out.println(state_list.get(i).toString());
+						if(debug) System.out.println("Task to go to= " + entry.toString());
+						State newState = state_list.get(i).clone();
+						City final_City = newState.getCurrentCity();
+						int cost = 0;
+						if(entry.getValue() == 1 && entry.getKey().weight < newState.getCurrentSpace()) {
+							// move: current city => pickup location
+							if(debug) System.out.println("Pick up= " + entry.toString());
+							if(debug) System.out.println("Current city= " + newState.getCurrentCity() + " Going to= " + entry.getKey().pickupCity);
+							for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
+								if(debug) System.out.println("Going to= " + entry.getKey().pickupCity + " from: " + final_City + " by:" + city);
+								newState.action_list.add(new Action(false,false,null,true,city));
+								newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+								final_City = city;
+							}
+							if(debug) System.out.println("End moving, adding pick up action");
+							newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
+							newState.dicreaseCurrentSpace(entry.getKey().weight);
+							newState.setCurrentCity(final_City);
+							newState.updatingTaskTable(entry.getKey(), 0);
 						}
-						System.out.println("End moving, adding pick up action");
-						newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
-						newState.dicreaseCurrentSpace(entry.getKey().weight);
-						newState.setCurrentCity(final_City);
-						newState.updatingTaskTable(entry.getKey(), 0);
-					}
-					else if(entry.getValue() == 0) {
-						System.out.println("Deliver= " + entry.toString());
+						else if(entry.getValue() == 0) {
+							if(debug) System.out.println("Deliver= " + entry.toString());
+	
+							// move: pickup location => delivery location
+							for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
+								if(debug) System.out.println("Going to= " + entry.getKey().deliveryCity + " from: " + final_City + " by:" + city);
+								newState.action_list.add(new Action(false,false,null,true,city));
+								newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+								final_City = city;
+							}
+							if(debug) System.out.println("Updating action list");
+							newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
+							newState.setCurrentCity(final_City);
+							if(debug) System.out.println("Updating current space");
+							newState.increaseCurrentSpace(entry.getKey().weight);
+							if(debug) System.out.println("Updating task table");
+							newState.task_table.remove(entry.getKey());
+						}
+						else continue;
+						if(newState.task_table.isEmpty()) {
+							if(debug) System.out.println("Adding to final state");
+							if(debug) System.out.println(newState.toString());
+							finalstate_list.add(newState);
+							//state_list.add(newState);
+							if(debug) System.out.println("final state list size:" + finalstate_list.size());
 
-						// move: pickup location => delivery location
-						for (City city : entry.getKey().path()) {
-							System.out.println("Going to= " + entry.getKey().deliveryCity + " by:" + city);
-							newState.action_list.add(new Action(false,false,null,true,city));
-							newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-							final_City = city;
 						}
-						System.out.println("Updating action list");
-						newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
-						newState.setCurrentCity(final_City);
-						System.out.println("Updating current space");
-						newState.increaseCurrentSpace(entry.getKey().weight);
-						System.out.println("Updating task table");
-						newState.task_table.remove(entry.getKey());
-					}
-					else continue;
-					if(newState.task_table.isEmpty()) {
-						System.out.println("Adding to final state");
-						finalstate_list.add(newState);
-					}
-					else {
-						System.out.println("Adding new state:");
-						System.out.println(newState.toString());
-						state_list.add(newState);
-					}
-				}
-				System.out.println("removing state");
-				state_list.remove(i);
-				System.out.println("State list= " + state_list.toString());
+						else {
+							if(debug) System.out.println("Adding new state:");
+							if(debug) System.out.println(newState.toString());							
+							if(debug) System.out.println("////////////////////////////////////////////");
+							state_list.add(newState);
+						}
+						if(debug) System.out.println("////////////////////////////////////////////");
+						if(debug) System.out.println("////////////////////////////////////////////");
+						if(debug) System.out.println("////////////////////////////////////////////");
+						if(debug) System.out.println("////////////////////////////////////////////");
+						if(debug) System.out.println("Cost= " + newState.getCost());
+							
+					}	
 
 			}
-			System.out.println("State number= " + state_list.size());
+			for(int i=0;i<state_number;i++) {
+				if(debug) System.out.println("removing state");
+				state_list.remove(0);
+				if(debug) System.out.println("state removed");
+				if(debug) System.out.println("state list size:" + state_list.size());
+				if(debug) System.out.println("State list= " + state_list.toString());	
+				if(debug) System.out.println("count++");
+			}
+
+			//System.out.println("State number= " + state_list.size());
 			count++;
 		}
-				
+		if(debug) System.out.println("find best final state");
+
 		//finding best action
-		ArrayList<Action> bestActionList = FindBestState(state_list);
-		
+		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
+		if(debug) System.out.println("Best action list= " + bestActionList.toString());
+
 		currentCity = vehicle.getCurrentCity();
 		
 		//building best plan with best action list
@@ -443,7 +500,7 @@ class State implements Cloneable {
 		this.cost = cost;				
 	}
 	public String toString() {
-		return "Current city= " + this.getCurrentCity().toString() +"Current space= " + this.getCurrentSpace() + "task table= " + this.getTaskTable().toString();
+		return "Current city= " + this.getCurrentCity().toString() +"Current space= " + this.getCurrentSpace() + "\n task table= " + this.getTaskTable().toString();
 
 	}
 	public State() {				
