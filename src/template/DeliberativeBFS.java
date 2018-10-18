@@ -226,7 +226,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return bool;
 	}
-	private void RemovingSimilarState(ArrayList<State> state_list) {
+	private void RemovingSimilarStates(ArrayList<State> state_list) {
 		//System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
 		ArrayList<Integer> indexToDel = new ArrayList<Integer>();;
 		for(int i=0;i<state_list.size();i++) {
