@@ -226,7 +226,28 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return bool;
 	}
-	
+	private void RemovingSimilarState(ArrayList<State> state_list) {
+		System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
+
+		for(int i=0;i<state_list.size();i++) {
+
+			for(int j=0;j<state_list.size();j++) {
+				if(AreTaskTablesEqual(state_list.get(i).getTaskTable(),state_list.get(j).getTaskTable()) && i!=j) {
+					System.out.println("Removing: " + j);
+					state_list.remove(j);
+				}
+			}
+		}
+		System.out.println("Final state_list_size: " + state_list.size());
+	}
+	private boolean AreTaskTablesEqual(Hashtable<Task,Double> task_table1, Hashtable<Task,Double> task_table2) {
+		boolean result = false;
+		
+		
+		
+		
+		return result;
+	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {
 			
 		//Variables
@@ -260,6 +281,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		while(whileBool) {
 			//whileBool = filterStateList(state_list);
 			whileBool = isStateListTasksNotEmpty(state_list);
+			RemovingSimilarState(state_list);
 			state_number=state_list.size();
 			if(debug) System.out.println("*");
 			if(debug) System.out.println("*");
@@ -356,7 +378,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			count++;
 		}
 		if(debug) System.out.println("find best final state");
-
+		System.out.println("Final State number= " + finalstate_list.size());
 		//finding best action
 		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
 		if(debug) System.out.println("Best action list= " + bestActionList.toString());
