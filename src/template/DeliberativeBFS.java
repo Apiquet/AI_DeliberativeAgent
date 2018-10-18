@@ -227,26 +227,43 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		return bool;
 	}
 	private void RemovingSimilarState(ArrayList<State> state_list) {
-		System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
-
+		//System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
+		ArrayList<Integer> indexToDel = new ArrayList<Integer>();;
 		for(int i=0;i<state_list.size();i++) {
-
 			for(int j=0;j<state_list.size();j++) {
-				if(AreTaskTablesEqual(state_list.get(i).getTaskTable(),state_list.get(j).getTaskTable()) && i!=j) {
-					System.out.println("Removing: " + j);
-					state_list.remove(j);
+				if(AreTaskTablesEqual(state_list.get(i).getTaskTable(),state_list.get(j).getTaskTable()) && i!=j ) {
+					//System.out.println("Removing: " + j);
+					indexToDel.add(j);
 				}
 			}
 		}
-		System.out.println("Final state_list_size: " + state_list.size());
+		//System.out.println("Final state_list_size: " + state_list.size());
 	}
 	private boolean AreTaskTablesEqual(Hashtable<Task,Double> task_table1, Hashtable<Task,Double> task_table2) {
-		boolean result = false;
+		if(task_table1.size() == task_table2.size()) {
+			for (Entry<Task, Double> entry1 : task_table1.entrySet()) {
+				for (Entry<Task, Double> entry2 : task_table2.entrySet()) {
+					if(entry1.getKey() == entry2.getKey() && entry1.getValue()!=entry2.getValue()) return false;
+				}
+			}
+		}
 		
+		return true;
+	}
+	private boolean IsStatePresent(ArrayList<State> state_list, State state) {
+		//System.out.println("New state= : " + state.toString());
+		//System.out.println("list size= : " + state_list.size());
 		
-		
-		
-		return result;
+		for(int i=0;i<state_list.size();i++) {
+			//System.out.println("Comparison state= : " + state_list.get(i).toString());
+			if(state_list.get(i).getTaskTable().size() == state.getTaskTable().size() && AreTaskTablesEqual(state_list.get(i).getTaskTable(),state.getTaskTable())) {
+				//System.out.println("EQUAL");
+				return true;
+			}
+		}
+		//System.out.println("NOT equal");
+
+		return false;
 	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {
 			
@@ -281,7 +298,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		while(whileBool) {
 			//whileBool = filterStateList(state_list);
 			whileBool = isStateListTasksNotEmpty(state_list);
-			RemovingSimilarState(state_list);
 			state_number=state_list.size();
 			if(debug) System.out.println("*");
 			if(debug) System.out.println("*");
@@ -293,7 +309,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 			if(debug) System.out.println("*");
 			if(debug) System.out.println("*");
 			for(int i=0;i<state_number;i++) {	
-					
+
 				if(debug) System.out.println("*");
 				if(debug) System.out.println("********************************");
 				if(debug) System.out.println("for loop number= " + i);
@@ -301,6 +317,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				if(debug) System.out.println("*");
 				if(debug) System.out.println("State number= " + state_number);
 					for (Entry<Task, Double> entry : state_list.get(i).task_table.entrySet()) {
+
 						if(debug) System.out.println("Current state:");
 						if(debug) System.out.println(state_list.get(i).toString());
 						if(debug) System.out.println("Task to go to= " + entry.toString());
@@ -354,6 +371,7 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 							if(debug) System.out.println("Adding new state:");
 							if(debug) System.out.println(newState.toString());							
 							if(debug) System.out.println("////////////////////////////////////////////");
+							//if(!IsStatePresent(state_list,newState)) 
 							state_list.add(newState);
 						}
 						if(debug) System.out.println("////////////////////////////////////////////");
@@ -374,14 +392,15 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 				if(debug) System.out.println("count++");
 			}
 
-			//System.out.println("State number= " + state_list.size());
-			count++;
+			//RemovingSimilarState(state_list);
+			System.out.println("State number= " + state_list.size());
 		}
 		if(debug) System.out.println("find best final state");
 		System.out.println("Final State number= " + finalstate_list.size());
 		//finding best action
 		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
 		if(debug) System.out.println("Best action list= " + bestActionList.toString());
+		System.out.println("count= " + count);
 
 		currentCity = vehicle.getCurrentCity();
 		
