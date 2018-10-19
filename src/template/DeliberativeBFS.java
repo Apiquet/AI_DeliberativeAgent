@@ -106,51 +106,6 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		return plan;
 	}
 
-
-	private void PickUpTask(City city, Hashtable<Task,Double> task_table,ArrayList<Action> action_list, AtomicInteger currentSpace) {
-		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
-		for(Entry<Task, Double> entry : task_table.entrySet()){
-			if(entry.getKey().pickupCity == city && entry.getValue() == 1 && currentSpace.get() > entry.getKey().weight){
-				tasksToPickUp.add(entry.getKey());
-				entry.setValue((double) 0);
-				//Adding pickup action to action_list
-				action_list.add(new Action(true,false,entry.getKey(),false,null));
-				currentSpace.set(currentSpace.get()-entry.getKey().weight);
-		    }
-		}
-	}
-	private void DeliverTask(City city, Hashtable<Task,Double> task_table, ArrayList<Action> action_list, AtomicInteger currentSpace, AtomicInteger totalReward) {
-		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
-		for(Entry<Task, Double> entry : task_table.entrySet()){
-			if(entry.getKey().deliveryCity == city && entry.getValue() == 0){
-				tasksToDeliver.add(entry.getKey());
-		    }
-		}
-		if(tasksToDeliver.size() != 0) {
-			for(int i=0;i<tasksToDeliver.size();i++) {
-				//Adding delivery action to action_list
-				action_list.add(new Action(false,true,tasksToDeliver.get(i),false,null));
-				currentSpace.set(currentSpace.get()+tasksToDeliver.get(i).weight);
-				//updating task_table
-				task_table.remove(tasksToDeliver.get(i));
-				totalReward.set((int) (totalReward.get()+tasksToDeliver.get(i).reward));
-			}				
-		}			
-	}
-	private City MovingToRandomCity(ArrayList<Action> action_list, AtomicInteger cost, City currentCity, Vehicle vehicle) {
-		// moving randomly:
-		Random rand = new Random();
-		City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
-		//adding move action to the action_list
-		action_list.add(new Action(false,false,null,true,nextCity));
-		//updating cost of the current plan
-		cost.set((int) (cost.get()+currentCity.distanceTo(nextCity)*vehicle.costPerKm()));
-		
-		//updating current city
-		currentCity = nextCity;	
-		return currentCity;
-	}
-
 	private ArrayList<Action> FindBestAction(HashMap<ArrayList<Action>,Double> action_table) {
 		ArrayList<Action> bestActionList = null;
 		double minCost = Double.MAX_VALUE;
@@ -198,13 +153,203 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return plan;
 	}
-	private City resetVariables(AtomicInteger cost, AtomicInteger totalReward, AtomicInteger currentSpace, City currentCity, ArrayList<Action> action_list, Hashtable<Task,Double> task_pickedUp, Vehicle vehicle) {
-		cost.set(0);
-		totalReward.set(0);
-		currentSpace.set(vehicle.capacity());	
-		action_list.clear();
-		task_pickedUp.clear();
-		return vehicle.getCurrentCity();
+	
+	private void RemovingSimilarStates(ArrayList<State> state_list) {
+		System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
+		ArrayList<Integer> indexToDel = new ArrayList<Integer>();
+		int i = 0;
+		int j = 0;
+		while(i<state_list.size()) {
+			boolean i_removed=false;
+			//System.out.println("state size: " + state_list.size() + "i= " + i);
+			while(j<state_list.size()) {
+				boolean j_removed=false;
+				if(AreTaskTablesEqual(state_list.get(i).getTaskTable(),state_list.get(j).getTaskTable()) && i!=j && state_list.get(i).getCurrentCity() == state_list.get(j).getCurrentCity()) {
+					if(state_list.get(i).getCost() > state_list.get(j).getCost()) {
+						state_list.remove(i);
+						//System.out.println("remove: " + i);
+						i_removed = true;
+						break;
+					}
+					else{
+						state_list.remove(j);
+						//System.out.println("remove: " + j);
+						j_removed = false;
+					}					
+				}
+				if(!j_removed) j++;
+			}
+			if(!i_removed) i++;
+		}
+		System.out.println("RemovingSimilarState, final state_list_size: " + state_list.size());
+
+	}
+	private boolean AreTaskTablesEqual(Hashtable<Task,Boolean> task_table1, Hashtable<Task,Boolean> task_table2) {
+		if(task_table1.size() == task_table2.size()) {
+			for (Entry<Task, Boolean> entry1 : task_table1.entrySet()) {
+				for (Entry<Task, Boolean> entry2 : task_table2.entrySet()) {
+					if(entry1.getKey() == entry2.getKey() && entry1.getValue()!=entry2.getValue()) return false;
+				}
+			}
+		}
+		
+		return true;
+	}
+	
+	private ArrayList<State> RemovingStateWithHigherCost(ArrayList<State> state_list, double cost) {
+		System.out.println("RemovingStateWithHigherCost, init state_list_size: " + state_list.size());
+		ArrayList<State> new_list = new ArrayList<State>();
+		for(int i=0;i<state_list.size();i++) {
+			if(state_list.get(i).getCost()<cost) {
+				new_list.add(state_list.get(i));
+			}
+		}
+		System.out.println("RemovingStateWithHigherCost, final state_list_size: " + new_list.size());
+		return new_list;
+	}
+	
+	private int calculNaiveCost(Hashtable<Task,Boolean> task_table, Vehicle vehicle) {
+		int cost = 0;
+		City currentCity = vehicle.getCurrentCity();
+		City finalCity = vehicle.getCurrentCity();
+		for (Entry<Task, Boolean> entry : task_table.entrySet()) {
+			// move: current city => pickup location
+			for (City city : currentCity.pathTo(entry.getKey().pickupCity)) {
+				cost+=(int)finalCity.distanceTo(city)*vehicle.costPerKm();
+				finalCity = city;
+			}
+			currentCity = entry.getKey().pickupCity;
+			// move: pickup location => delivery location
+			for (City city : currentCity.pathTo(entry.getKey().deliveryCity))
+			{
+				cost+=(int)finalCity.distanceTo(city)*vehicle.costPerKm();
+				finalCity = city;
+			}
+
+			// set current city
+			currentCity = entry.getKey().deliveryCity;
+		}
+		System.out.println("Naive cost= " + cost);
+
+		return cost;
+	}
+	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {			
+		//Variables
+		City currentCity = vehicle.getCurrentCity();
+		ArrayList<Action> action_list = new ArrayList<Action>();
+		ArrayList<State> state_list = new ArrayList<State>();
+		Hashtable<Task,Boolean> task_table = new Hashtable<Task,Boolean>();
+		State currentState = new State();		
+		AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
+		int naiveCost = 0;
+		//fetching all the tasks
+		for (Task task : tasks) {
+			task_table.put(task, true);
+		}
+		int task_number = task_table.size();
+		naiveCost = calculNaiveCost(task_table, vehicle);
+		//Declaring initial state with initial city, vehicle space and all the tasks
+		currentState = new State(currentCity, currentSpace.get(), task_table, action_list, 0);
+		state_list.add(currentState);
+		int state_number = 0;
+		int count=0;
+		//building the plan until there is no more task to pick up or to deliver
+		while(!state_list.isEmpty()) {
+			state_number=state_list.size();
+			for(int i=0;i<state_number;i++) {	
+				for (Entry<Task, Boolean> entry : state_list.get(i).task_table.entrySet()) {
+					State newState = state_list.get(i).clone();
+					City final_City = newState.getCurrentCity();
+					int cost = 0;
+					if(entry.getValue() == true && entry.getKey().weight < newState.getCurrentSpace()) {
+						// move: current city => pickup location
+						for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
+							newState.action_list.add(new Action(false,false,null,true,city));
+							newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+							final_City = city;
+						}
+						newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
+						newState.dicreaseCurrentSpace(entry.getKey().weight);
+						newState.setCurrentCity(final_City);
+						newState.updatingTaskTable(entry.getKey(), false);
+					}
+					else if(entry.getValue() == false) {
+
+						// move: pickup location => delivery location
+						for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
+							newState.action_list.add(new Action(false,false,null,true,city));
+							newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+							final_City = city;
+						}
+						newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
+						newState.setCurrentCity(final_City);
+						newState.increaseCurrentSpace(entry.getKey().weight);
+						newState.task_table.remove(entry.getKey());
+					}
+					else continue;
+					if(newState.task_table.isEmpty()) {
+						finalstate_list.add(newState);
+					}
+					else {
+						state_list.add(newState);
+					}						
+				}	
+			}
+			for(int i=0;i<state_number;i++) {
+				state_list.remove(0);
+			}
+			System.out.println("State number= " + state_list.size());
+			//RemovingSimilarStates(state_list);
+			count++;
+			double progress = count*10 /(task_number*2);
+			System.out.println("Count= " + count);
+			System.out.println("Progress= " + progress);
+			if(count<8) RemovingSimilarStates(state_list);
+			if(count<=task_number*2 && progress>=3) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.05*progress);
+		}		
+		//finding best action
+		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
+		Plan plan = new Plan(vehicle.getCurrentCity());
+		//building best plan with best action list
+		plan=BuildingPlan(vehicle.getCurrentCity(), plan, bestActionList);		
+		return plan;
+	}
+	@Override
+	public void planCancelled(TaskSet carriedTasks) {
+		
+		if (!carriedTasks.isEmpty()) {
+			// This cannot happen for this simple agent, but typically
+			// you will need to consider the carriedTasks when the next
+			// plan is computed.
+		}
+	}
+	/*
+	 private ArrayList<State> RemovingStatesWithHigherCost(ArrayList<State> state_list) {
+		int cost = state_list.get(0).getCost();
+		ArrayList<State> new_list = new ArrayList<State>();
+		State state = state_list.get(0);
+		for(int i=0;i<state_list.size();i++) {
+			if(state_list.get(i).getCost()<cost) {
+				state = state_list.get(i);
+			}
+		}
+		new_list.add(state);
+		return new_list;
+	}
+	private boolean IsStatePresent(ArrayList<State> state_list, State state) {
+		//System.out.println("New state= : " + state.toString());
+		//System.out.println("list size= : " + state_list.size());
+		
+		for(int i=0;i<state_list.size();i++) {
+			//System.out.println("Comparison state= : " + state_list.get(i).toString());
+			if(state_list.get(i).getTaskTable().size() == state.getTaskTable().size() && AreTaskTablesEqual(state_list.get(i).getTaskTable(),state.getTaskTable())) {
+				//System.out.println("EQUAL");
+				return true;
+			}
+		}
+		//System.out.println("NOT equal");
+
+		return false;
 	}
 	private boolean filterStateList(ArrayList<State> state_list) {
 		int cost = Integer.MAX_VALUE;
@@ -226,267 +371,119 @@ public class DeliberativeBFS implements DeliberativeBehavior {
 		}
 		return bool;
 	}
-	private void RemovingSimilarStates(ArrayList<State> state_list) {
-		//System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
-		ArrayList<Integer> indexToDel = new ArrayList<Integer>();;
-		for(int i=0;i<state_list.size();i++) {
-			for(int j=0;j<state_list.size();j++) {
-				if(AreTaskTablesEqual(state_list.get(i).getTaskTable(),state_list.get(j).getTaskTable()) && i!=j ) {
-					//System.out.println("Removing: " + j);
-					indexToDel.add(j);
-				}
-			}
+	private void PickUpTask(City city, Hashtable<Task,Double> task_table,ArrayList<Action> action_list, AtomicInteger currentSpace) {
+		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
+		for(Entry<Task, Double> entry : task_table.entrySet()){
+			if(entry.getKey().pickupCity == city && entry.getValue() == 1 && currentSpace.get() > entry.getKey().weight){
+				tasksToPickUp.add(entry.getKey());
+				entry.setValue((double) 0);
+				//Adding pickup action to action_list
+				action_list.add(new Action(true,false,entry.getKey(),false,null));
+				currentSpace.set(currentSpace.get()-entry.getKey().weight);
+		    }
 		}
-		//System.out.println("Final state_list_size: " + state_list.size());
 	}
-	private ArrayList<State> RemovingStatesWithHigherCost(ArrayList<State> state_list) {
-		int cost = state_list.get(0).getCost();
-		ArrayList<State> new_list = new ArrayList<State>();
-		State state = state_list.get(0);
-		for(int i=0;i<state_list.size();i++) {
-			if(state_list.get(i).getCost()<cost) {
-				state = state_list.get(i);
-			}
+	private void DeliverTask(City city, Hashtable<Task,Double> task_table, ArrayList<Action> action_list, AtomicInteger currentSpace, AtomicInteger totalReward) {
+		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
+		for(Entry<Task, Double> entry : task_table.entrySet()){
+			if(entry.getKey().deliveryCity == city && entry.getValue() == 0){
+				tasksToDeliver.add(entry.getKey());
+		    }
 		}
-		new_list.add(state);
-		return new_list;
+		if(tasksToDeliver.size() != 0) {
+			for(int i=0;i<tasksToDeliver.size();i++) {
+				//Adding delivery action to action_list
+				action_list.add(new Action(false,true,tasksToDeliver.get(i),false,null));
+				currentSpace.set(currentSpace.get()+tasksToDeliver.get(i).weight);
+				//updating task_table
+				task_table.remove(tasksToDeliver.get(i));
+				totalReward.set((int) (totalReward.get()+tasksToDeliver.get(i).reward));
+			}				
+		}			
 	}
-	private ArrayList<State> RemovingStateWithHigherCost(ArrayList<State> state_list, double cost) {
-		ArrayList<State> new_list = new ArrayList<State>();
-		for(int i=0;i<state_list.size();i++) {
-			if(state_list.get(i).getCost()<cost) {
-				new_list.add(state_list.get(i));
-			}
-		}
-		return new_list;
-	}
-	private boolean AreTaskTablesEqual(Hashtable<Task,Double> task_table1, Hashtable<Task,Double> task_table2) {
-		if(task_table1.size() == task_table2.size()) {
-			for (Entry<Task, Double> entry1 : task_table1.entrySet()) {
-				for (Entry<Task, Double> entry2 : task_table2.entrySet()) {
-					if(entry1.getKey() == entry2.getKey() && entry1.getValue()!=entry2.getValue()) return false;
-				}
-			}
-		}
+	private City MovingToRandomCity(ArrayList<Action> action_list, AtomicInteger cost, City currentCity, Vehicle vehicle) {
+		// moving randomly:
+		Random rand = new Random();
+		City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
+		//adding move action to the action_list
+		action_list.add(new Action(false,false,null,true,nextCity));
+		//updating cost of the current plan
+		cost.set((int) (cost.get()+currentCity.distanceTo(nextCity)*vehicle.costPerKm()));
 		
-		return true;
+		//updating current city
+		currentCity = nextCity;	
+		return currentCity;
 	}
-	private boolean IsStatePresent(ArrayList<State> state_list, State state) {
-		//System.out.println("New state= : " + state.toString());
-		//System.out.println("list size= : " + state_list.size());
+
+	 private Plan BFSRandPlan(Vehicle vehicle, TaskSet tasks) {
 		
-		for(int i=0;i<state_list.size();i++) {
-			//System.out.println("Comparison state= : " + state_list.get(i).toString());
-			if(state_list.get(i).getTaskTable().size() == state.getTaskTable().size() && AreTaskTablesEqual(state_list.get(i).getTaskTable(),state.getTaskTable())) {
-				//System.out.println("EQUAL");
-				return true;
-			}
-		}
-		//System.out.println("NOT equal");
-
-		return false;
-	}
-	private int calculNaiveCost(Hashtable<Task,Double> task_table, Vehicle vehicle) {
-		int cost = 0;
-		City currentCity = vehicle.getCurrentCity();
-		City finalCity = vehicle.getCurrentCity();
-		for (Entry<Task, Double> entry : task_table.entrySet()) {
-			// move: current city => pickup location
-			for (City city : currentCity.pathTo(entry.getKey().pickupCity)) {
-				cost+=(int)finalCity.distanceTo(city)*vehicle.costPerKm();
-				finalCity = city;
-			}
-			currentCity = entry.getKey().pickupCity;
-			// move: pickup location => delivery location
-			for (City city : currentCity.pathTo(entry.getKey().deliveryCity))
-			{
-				cost+=(int)finalCity.distanceTo(city)*vehicle.costPerKm();
-				finalCity = city;
-			}
-
-			// set current city
-			currentCity = entry.getKey().deliveryCity;
-		}
-
-		return cost;
-	}
-	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {
-			
 		//Variables
 		City currentCity = vehicle.getCurrentCity();
 		Plan plan = new Plan(currentCity);
 		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
 		HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
 		ArrayList<Action> action_list = new ArrayList<Action>();
-		ArrayList<State> state_list = new ArrayList<State>();
+		Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
 		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
 		State currentState = new State();		
 		Action currentAction = new Action();
+		AtomicInteger cost = new AtomicInteger(0);
 		AtomicInteger totalReward = new AtomicInteger(0);
 		int profit=0; 
 		AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
 		int numberOfPlanToTry = 10000;
-		int naiveCost = 0;
-		//fetching all the tasks
-		for (Task task : tasks) {
-			task_table.put(task, (double) 1);
-		}
-		naiveCost = calculNaiveCost(task_table, vehicle);
-		//Declaring initial state with initial city, vehicle space and all the tasks
-		currentState = new State(currentCity, currentSpace.get(), task_table, action_list, 0);
-		state_list.add(currentState);
-		int count = 0;
-		int state_number = 0;
-		boolean whileBool = true;
-		//building the plan until there is no more task to pick up or to deliver
-		while(whileBool) {
-			//whileBool = filterStateList(state_list);
-			whileBool = isStateListTasksNotEmpty(state_list);
-			state_number=state_list.size();
-			for(int i=0;i<state_number;i++) {	
-				for (Entry<Task, Double> entry : state_list.get(i).task_table.entrySet()) {
-					State newState = state_list.get(i).clone();
-					City final_City = newState.getCurrentCity();
-					int cost = 0;
-					if(entry.getValue() == 1 && entry.getKey().weight < newState.getCurrentSpace()) {
-						// move: current city => pickup location
-						for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
-							newState.action_list.add(new Action(false,false,null,true,city));
-							newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-							final_City = city;
-						}
-						newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
-						newState.dicreaseCurrentSpace(entry.getKey().weight);
-						newState.setCurrentCity(final_City);
-						newState.updatingTaskTable(entry.getKey(), 0);
-					}
-					else if(entry.getValue() == 0) {
 
-						// move: pickup location => delivery location
-						for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
-							newState.action_list.add(new Action(false,false,null,true,city));
-							newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-							final_City = city;
-						}
-						newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
-						newState.setCurrentCity(final_City);
-						newState.increaseCurrentSpace(entry.getKey().weight);
-						newState.task_table.remove(entry.getKey());
-					}
-					else continue;
-					if(newState.task_table.isEmpty()) {
-						finalstate_list.add(newState);
-						//state_list.add(newState);
-
-					}
-					else {
-						//if(!IsStatePresent(state_list,newState)) 
-						state_list.add(newState);
-					}
-						
-				}	
-
+		for(int j=0;j<numberOfPlanToTry;j++) {	
+			//fetching all the tasks
+			for (Task task : tasks) {
+				task_table.put(task, 1.0);
 			}
-			for(int i=0;i<state_number;i++) {
-				state_list.remove(0);
+			
+			//Declaring initial state with initial city, vehicle space and all the tasks
+			currentState = new State(currentCity, currentSpace.get(), task_table);
+			this.state_list.add(currentState);
+	
+			//building the plan until there is no more task to pick up or to deliver
+			while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
+				
+				// moving randomly:
+				currentCity = MovingToRandomCity(action_list, cost, currentCity, vehicle);
+				
+				//verifying if there is any task to pick up in the current city
+				PickUpTask(currentCity,task_table,task_pickedUp, action_list, currentSpace);				
+				
+				//verifying if there is any task to deliver in the current city
+				DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
+				
+				//updating current state and adding it to the state list
+				currentState = new State(currentCity, currentSpace.get(), task_table);
+				this.state_list.add(currentState);
 			}
-			System.out.println("State number= " + state_list.size());
-			//System.out.println("naiveCost= " + naiveCost);
+			
+			//adding new plan found to a table
+			action_table.put(action_list, (double) cost.get());
 
-			//state_list = RemovingStateWithHigherCost(state_list, naiveCost*0.48);
-			//System.out.println("State number after removing= " + state_list.size());
-			count++;
+			//reset all the variables for the next plan discovery
+			//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
+			cost.set(0);
+			totalReward.set(0);
+			currentSpace.set(vehicle.capacity());	
+			currentCity = vehicle.getCurrentCity();
+			action_list = new ArrayList<Action>();
+			task_pickedUp = new Hashtable<Task,Double>();			
 		}
-		System.out.println("Final State number= " + finalstate_list.size());
+		
 		//finding best action
-		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
-		System.out.println("count= " + count);
-
+		ArrayList<Action> bestActionList = FindBestAction(action_table);
+		
 		currentCity = vehicle.getCurrentCity();
 		
 		//building best plan with best action list
 		plan=BuildingPlan(currentCity, plan, bestActionList);
 		
 		return plan;
-	}
-	@Override
-	public void planCancelled(TaskSet carriedTasks) {
-		
-		if (!carriedTasks.isEmpty()) {
-			// This cannot happen for this simple agent, but typically
-			// you will need to consider the carriedTasks when the next
-			// plan is computed.
-		}
-	}
-		/*private Plan BFSRandPlan(Vehicle vehicle, TaskSet tasks) {
-			
-			//Variables
-			City currentCity = vehicle.getCurrentCity();
-			Plan plan = new Plan(currentCity);
-			HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
-			HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
-			ArrayList<Action> action_list = new ArrayList<Action>();
-			Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
-			Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
-			State currentState = new State();		
-			Action currentAction = new Action();
-			AtomicInteger cost = new AtomicInteger(0);
-			AtomicInteger totalReward = new AtomicInteger(0);
-			int profit=0; 
-			AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
-			int numberOfPlanToTry = 10000;
-
-			for(int j=0;j<numberOfPlanToTry;j++) {	
-				//fetching all the tasks
-				for (Task task : tasks) {
-					task_table.put(task, 1.0);
-				}
-				
-				//Declaring initial state with initial city, vehicle space and all the tasks
-				currentState = new State(currentCity, currentSpace.get(), task_table);
-				this.state_list.add(currentState);
-		
-				//building the plan until there is no more task to pick up or to deliver
-				while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
-					
-					// moving randomly:
-					currentCity = MovingToRandomCity(action_list, cost, currentCity, vehicle);
-					
-					//verifying if there is any task to pick up in the current city
-					PickUpTask(currentCity,task_table,task_pickedUp, action_list, currentSpace);				
-					
-					//verifying if there is any task to deliver in the current city
-					DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
-					
-					//updating current state and adding it to the state list
-					currentState = new State(currentCity, currentSpace.get(), task_table);
-					this.state_list.add(currentState);
-				}
-				
-				//adding new plan found to a table
-				action_table.put(action_list, (double) cost.get());
-
-				//reset all the variables for the next plan discovery
-				//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
-				cost.set(0);
-				totalReward.set(0);
-				currentSpace.set(vehicle.capacity());	
-				currentCity = vehicle.getCurrentCity();
-				action_list = new ArrayList<Action>();
-				task_pickedUp = new Hashtable<Task,Double>();			
-			}
-			
-			//finding best action
-			ArrayList<Action> bestActionList = FindBestAction(action_table);
-			
-			currentCity = vehicle.getCurrentCity();
-			
-			//building best plan with best action list
-			plan=BuildingPlan(currentCity, plan, bestActionList);
-			
-			return plan;
-		}*/
-	}
+	}*/
+}
 class Action{
 	boolean pickup=false;
 	boolean delivery=false;
@@ -521,7 +518,7 @@ class Action{
 class State implements Cloneable {
 	private City currentCity;
 	private int currentSpace;
-	Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
+	Hashtable<Task,Boolean> task_table = new Hashtable<Task,Boolean>();
 	ArrayList<Action> action_list = new ArrayList<Action>();
 	int cost = 0;
 	public State clone() throws CloneNotSupportedException {
@@ -529,11 +526,11 @@ class State implements Cloneable {
         clonedObj.currentCity = this.currentCity;
         clonedObj.currentSpace = new Integer(this.currentSpace);
         clonedObj.cost = new Integer(this.cost);
-        clonedObj.task_table = new Hashtable<Task,Double>(this.task_table);
+        clonedObj.task_table = new Hashtable<Task,Boolean>(this.task_table);
         clonedObj.action_list = new ArrayList<Action>(this.action_list);
         return clonedObj;
     }
-	public State(City currentcity, int currentSpace, Hashtable<Task,Double> task_table, ArrayList<Action> action_list, int cost) {				
+	public State(City currentcity, int currentSpace, Hashtable<Task,Boolean> task_table, ArrayList<Action> action_list, int cost) {				
 		this.currentCity = currentcity;
 		this.currentSpace = currentSpace;
 		this.task_table = task_table;		
@@ -570,12 +567,12 @@ class State implements Cloneable {
 		this.currentSpace += space;
 	}
 
-	public Hashtable<Task,Double> getTaskTable() {
+	public Hashtable<Task,Boolean> getTaskTable() {
 		return this.task_table;
 	}
-	public void updatingTaskTable(Task task, double value) {
-		for (Entry<Task, Double> entry : this.task_table.entrySet()) {
-			if(entry.getKey() == task) entry.setValue(value);
+	public void updatingTaskTable(Task task, boolean bool) {
+		for (Entry<Task, Boolean> entry : this.task_table.entrySet()) {
+			if(entry.getKey() == task) entry.setValue(bool);
 		}
 	}
 	public ArrayList<Action> getActionList() {
