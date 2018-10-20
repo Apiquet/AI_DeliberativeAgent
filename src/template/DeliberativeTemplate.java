@@ -359,6 +359,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 							for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
 								newState.action_list.add(new Action(false,false,null,true,city));
 								newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+								newState.increaseAStarWeight((int)final_City.distanceTo(city)*vehicle.costPerKm());
 								final_City = city;
 							}
 							newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
@@ -372,6 +373,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 							for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
 								newState.action_list.add(new Action(false,false,null,true,city));
 								newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+								newState.increaseAStarWeight((int)final_City.distanceTo(city)*vehicle.costPerKm());
 								final_City = city;
 							}
 							newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
@@ -388,10 +390,10 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 							state_number_prediction ++;
 						}						
 					}
-					System.out.println("State number prediction= " + state_list.size());
 				}
+				System.out.println("State number with predictions= " + state_list.size());
+				System.out.println("Removing previous state");
 				for(int i=0;i<state_number;i++) {
-					System.out.println("Removing previous state");
 					state_list.remove(0);				
 				}
 
@@ -431,22 +433,22 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 						}
 						else continue;
 						if(currentCost > cost_prediction) {
-							state_list.get(i).setAStarWeight(cost_prediction);	
+							state_list.get(i).increaseAStarWeight(cost_prediction);	
 							currentCost = cost_prediction;
 						}
 					}
 				}
-					
-			for(int i=0;i<state_number_prediction-1;i++) {
-				System.out.println("For loop Removing= " + i + " state number = " + state_list.size());
+
+				System.out.println("For loop Removing, state number = " + state_list.size());
 				System.out.println("state_number_prediction = " + state_number_prediction);
+			for(int i=0;i<state_number_prediction-1;i++) {
 					if(state_list.get(i).aStarWeight > state_list.get(i+1).aStarWeight) {
-						System.out.println("Removing= " + i);
+						//System.out.println("Removing= " + i);
 						state_list.remove(i);
 						i --;
 					}
 					else {
-						System.out.println("Else Removing= " + i);
+						//System.out.println("Else Removing= " + i);
 						state_list.remove(i+1);
 					}
 					state_number_prediction --;
