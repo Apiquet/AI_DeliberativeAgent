@@ -12,14 +12,14 @@
 	
 	<agent name="deliberative-bfs">
 		<set class-path="bin/"/>
-		<set class-name="template.DeliberativeBFS"/>
+		<set class-name="template.DeliberativeTemplate"/>
 		<set algorithm="BFS"/>
 	</agent>
 	
 	
 	<agent name="deliberative-astar">
 		<set class-path="bin/"/>
-		<set class-name="template.Deliberativeastar"/>
+		<set class-name="template.DeliberativeTemplate"/>
 		<set algorithm="A-star"/>
 	</agent>
 	
