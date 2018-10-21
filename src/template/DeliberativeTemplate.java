@@ -320,204 +320,160 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		plan=BuildingPlan(vehicle.getCurrentCity(), plan, bestActionList);		
 		return plan;
 	}
+	private Plan ASTARPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {			
+		//Variables
+		City currentCity = vehicle.getCurrentCity();
+		ArrayList<Action> action_list = new ArrayList<Action>();
+		ArrayList<State> state_list = new ArrayList<State>();
+		ArrayList<State> transition_state_list = new ArrayList<State>();
+		Hashtable<Task,Boolean> task_table = new Hashtable<Task,Boolean>();
+		State currentState = new State();		
+		AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
+		int naiveCost = 0;
+		//fetching all the tasks
+		for (Task task : tasks) {
+			task_table.put(task, true);
+		}
+		int task_number = task_table.size();
+		naiveCost = calculNaiveCost(task_table, vehicle);
+		//Declaring initial state with initial city, vehicle space and all the tasks
+		currentState = new State(currentCity, currentSpace.get(), task_table, action_list, 0);
+		state_list.add(currentState);
+		int state_number = 0;
+		int count=0;
+		int alpha=5;
+		//building the plan until there is no more task to pick up or to deliver
+		while(finalstate_list.isEmpty()) {
+			for(int j=0;j<alpha;j++) {
+				state_number=state_list.size();
+				for(int i=0;i<state_number;i++) {	
+					for (Entry<Task, Boolean> entry : state_list.get(i).task_table.entrySet()) {
+						State newState = state_list.get(i).clone();
+						City final_City = newState.getCurrentCity();
+						int cost = 0;
+						if(entry.getValue() == true && entry.getKey().weight < newState.getCurrentSpace()) {
+							// move: current city => pickup location
+							for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
+								newState.action_list.add(new Action(false,false,null,true,city));
+								newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+								final_City = city;
+							}
+							newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
+							newState.decreaseCurrentSpace(entry.getKey().weight);
+							newState.setCurrentCity(final_City);
+							newState.updatingTaskTable(entry.getKey(), false);
+						}
+						else if(entry.getValue() == false) {
+	
+							// move: pickup location => delivery location
+							for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
+								newState.action_list.add(new Action(false,false,null,true,city));
+								newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
+								final_City = city;
+							}
+							newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
+							newState.setCurrentCity(final_City);
+							newState.increaseCurrentSpace(entry.getKey().weight);
+							newState.task_table.remove(entry.getKey());
+						}
+						else continue;
+						if(j==0) newState.setIdentity(count);
+						else newState.setIdentity(state_list.get(i).getIdentity());
+						if(newState.task_table.isEmpty()) {
+							finalstate_list.add(newState);
+						}
+						else {							
+							state_list.add(newState);
+						}
+						count++;
+					}
+				}
+				for(int i=0;i<state_number;i++) {
+					transition_state_list.add(state_list.get(0));
+					state_list.remove(0);
+				}
+			}
+			//System.out.println("State list size= " + state_list.size());
+			//System.out.println("State list= " + state_list.toString());
+			//System.out.println("Transition State list= " + transition_state_list.toString());
+			if(!state_list.isEmpty()) {
+				State minimalCostState = new State();
+				int indexStateMinCost = -1;
+				int minCost=Integer.MAX_VALUE;
+				for(int i=0;i<state_list.size();i++) {
+					if(state_list.get(i).getCost()<minCost) {
+						minCost=state_list.get(i).getCost();
+						indexStateMinCost=state_list.get(i).getIdentity();
+					}
+				}
+				for(int i=0;i<transition_state_list.size();i++) {
+					if(transition_state_list.get(i).getIdentity()==indexStateMinCost) {
+						minimalCostState=transition_state_list.get(i);
+						break;
+					}
+				}
+				state_list.clear();
+				transition_state_list.clear();
+				state_list.add(minimalCostState);
+			}
+			//System.out.println("State list size= " + state_list.size());
+			//System.out.println("State= " + state_list.toString());
+		}		
+		//finding best action
+		//System.out.println("final State list size= " + finalstate_list.size());
+
+		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
+		Plan plan = new Plan(vehicle.getCurrentCity());
+		//building best plan with best action list
+		plan=BuildingPlan(vehicle.getCurrentCity(), plan, bestActionList);		
+		return plan;
+	}
 	private void gettingPrediction(ArrayList<State> state_list,int state_number_prediction, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
 		for(int i=0;i<state_number_prediction;i++) {
-			System.out.println(" ");
+			/*System.out.println(" ");
 			System.out.println(" ");
 
 			System.out.println("gettingPrediction on= " + state_list.get(i).toString());
 
-			System.out.println("State astar before prev= " + state_list.get(i).getAStarWeight());
-			nextLevelsPredictionBrut(state_list.get(i),state_list.get(i), alpha, vehicle);
+			System.out.println("State astar before prev= " + state_list.get(i).getAStarWeight());*/
 
-			System.out.println("State astar after prev= " + state_list.get(i).getAStarWeight());
+			nextLevelsPredictionNewVersion(state_list.get(i),state_list.get(i), alpha, vehicle);
+
+			//System.out.println("State astar after prev= " + state_list.get(i).getAStarWeight());
 		}
 	}
-	private void nextLevelsPrediction(State stateToUpdate, State currentState, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
-		System.out.println("/////////////////////////////////////////////////");
-		System.out.println("/////////////// BEGINNING //////////////////////");
-		System.out.println("stateToUpdate.getCost(): " + stateToUpdate.getCost());
-		System.out.println("currentState.getCost(): " + currentState.getCost());
-
-		int currentCost = Integer.MAX_VALUE;
-		if(currentState.getAStarWeight() != -1) currentCost=currentState.getAStarWeight()+stateToUpdate.getCost();
-		System.out.println("currentCost before task loop: " + currentCost);
+	private void nextLevelsPredictionNewVersion(State stateToUpdate, State currentState, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
 		for (Entry<Task, Boolean> entry : currentState.task_table.entrySet()) {
 			State newState = currentState.clone();
-			int cost_prediction = 0;
 			City final_City = newState.getCurrentCity();
 			if(entry.getValue() == true && entry.getKey().weight < newState.getCurrentSpace()) {
-				// move: current city => pickup location
 				for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
-					newState.action_list.add(new Action(false,false,null,true,city));
 					newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					cost_prediction+=((int)final_City.distanceTo(city)*vehicle.costPerKm());
 					final_City = city;
 				}
-				newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
-				newState.decreaseCurrentSpace(entry.getKey().weight);
 				newState.setCurrentCity(final_City);
+				newState.decreaseCurrentSpace(entry.getKey().weight);
 				newState.updatingTaskTable(entry.getKey(), false);
 			}
 			else if(entry.getValue() == false) {
-
-				// move: pickup location => delivery location
 				for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
-					newState.action_list.add(new Action(false,false,null,true,city));
 					newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					cost_prediction+=((int)final_City.distanceTo(city)*vehicle.costPerKm());
 					final_City = city;
 				}
-				newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
 				newState.setCurrentCity(final_City);
 				newState.increaseCurrentSpace(entry.getKey().weight);
 				newState.task_table.remove(entry.getKey());
 			}
-			else continue;			
-			System.out.println("next level prediction: " + newState.toString());
-			if(alpha>1) nextLevelsPrediction(stateToUpdate, newState, alpha-1, vehicle);
-			System.out.println("");
-			System.out.println("");
-			System.out.println("alpha: " + alpha);
-			System.out.println("cost_prediction: " + cost_prediction);
-			System.out.println("currentCost: " + currentCost);
-			System.out.println("newState.getCost(): " + newState.getCost());
-			System.out.println("newState.getAStarWeight(): " + newState.getAStarWeight());
-
-			if(currentCost > newState.getCost() && alpha==1) {
-				System.out.println("saving it");
-				if(currentCost != Integer.MAX_VALUE) stateToUpdate.setAStarWeight(0);
-				stateToUpdate.increaseAStarWeight(cost_prediction);	
-				currentCost = newState.getCost();
+			else continue;
+			if(alpha>1) nextLevelsPredictionNewVersion(stateToUpdate, newState, alpha-1, vehicle);			
+			else if(stateToUpdate.getAStarWeight() > newState.getCost() || stateToUpdate.getAStarWeight() == -1) {
+				//System.out.println("Updating astar weight to: " + newState.getCost());
+				stateToUpdate.setAStarWeight(newState.getCost());
 			}
 		}
-		System.out.println("////////////// END ////////////////////");
-		System.out.println("/////////////////////////////////////////////////");
-
 	}
-	private void nextLevelsPredictionBrut(State stateToUpdate, State currentState, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
-		System.out.println("/////////////////////////////////////////////////");
-		System.out.println("/////////////// BEGINNING //////////////////////");
-		System.out.println("stateToUpdate.getCost(): " + stateToUpdate.getCost());
-		System.out.println("currentState.getCost(): " + currentState.getCost());
-
-		int currentCost = Integer.MAX_VALUE;
-		if(currentState.getAStarWeight() != -1) currentCost=currentState.getAStarWeight()+stateToUpdate.getCost();
-		System.out.println("currentCost before task loop: " + currentCost);
-		for (Entry<Task, Boolean> entry : currentState.task_table.entrySet()) {
-			State newState = currentState.clone();
-			int cost_prediction = 0;
-			City final_City = newState.getCurrentCity();
-			if(entry.getValue() == true && entry.getKey().weight < newState.getCurrentSpace()) {
-				// move: current city => pickup location
-				for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
-					newState.action_list.add(new Action(false,false,null,true,city));
-					newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					cost_prediction+=((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					final_City = city;
-				}
-				newState.action_list.add(new Action(true,false,entry.getKey(),true,null));
-				newState.decreaseCurrentSpace(entry.getKey().weight);
-				newState.setCurrentCity(final_City);
-				newState.updatingTaskTable(entry.getKey(), false);
-			}
-			else if(entry.getValue() == false) {
-
-				// move: pickup location => delivery location
-				for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
-					newState.action_list.add(new Action(false,false,null,true,city));
-					newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					cost_prediction+=((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					final_City = city;
-				}
-				newState.action_list.add(new Action(false,true,entry.getKey(),true,null));
-				newState.setCurrentCity(final_City);
-				newState.increaseCurrentSpace(entry.getKey().weight);
-				newState.task_table.remove(entry.getKey());
-			}
-			else continue;					
-
-			for (Entry<Task, Boolean> entry2 : newState.task_table.entrySet()) {
-				State newState2 = newState.clone();
-				int cost_prediction2 = 0;
-				City final_City2 = newState2.getCurrentCity();
-				if(entry2.getValue() == true && entry2.getKey().weight < newState2.getCurrentSpace()) {
-					// move: current city => pickup location
-					for (City city : newState2.getCurrentCity().pathTo(entry2.getKey().pickupCity)) {
-						newState2.action_list.add(new Action(false,false,null,true,city));
-						newState2.increaseCost((int)final_City2.distanceTo(city)*vehicle.costPerKm());
-						cost_prediction2+=((int)final_City2.distanceTo(city)*vehicle.costPerKm());
-						final_City2 = city;
-					}
-					newState2.action_list.add(new Action(true,false,entry2.getKey(),true,null));
-					newState2.decreaseCurrentSpace(entry2.getKey().weight);
-					newState2.setCurrentCity(final_City2);
-					newState2.updatingTaskTable(entry2.getKey(), false);
-				}
-				else if(entry2.getValue() == false) {
-
-					// move: pickup location => delivery location
-					for (City city : newState2.getCurrentCity().pathTo(entry2.getKey().deliveryCity)) {
-						newState2.action_list.add(new Action(false,false,null,true,city));
-						newState2.increaseCost((int)final_City2.distanceTo(city)*vehicle.costPerKm());
-						cost_prediction2+=((int)final_City2.distanceTo(city)*vehicle.costPerKm());
-						final_City2 = city;
-					}
-					newState2.action_list.add(new Action(false,true,entry2.getKey(),true,null));
-					newState2.setCurrentCity(final_City2);
-					newState2.increaseCurrentSpace(entry2.getKey().weight);
-					newState2.task_table.remove(entry2.getKey());
-				}
-				else continue;
-
-				for (Entry<Task, Boolean> entry3 : newState.task_table.entrySet()) {
-					State newState3 = newState2.clone();
-					int cost_prediction3 = 0;
-					City final_City3 = newState3.getCurrentCity();
-					if(entry3.getValue() == true && entry3.getKey().weight < newState3.getCurrentSpace()) {
-						// move: current city => pickup location
-						for (City city : newState3.getCurrentCity().pathTo(entry3.getKey().pickupCity)) {
-							newState3.action_list.add(new Action(false,false,null,true,city));
-							newState3.increaseCost((int)final_City3.distanceTo(city)*vehicle.costPerKm());
-							cost_prediction3+=((int)final_City3.distanceTo(city)*vehicle.costPerKm());
-							final_City3 = city;
-						}
-						newState3.action_list.add(new Action(true,false,entry3.getKey(),true,null));
-						newState3.decreaseCurrentSpace(entry3.getKey().weight);
-						newState3.setCurrentCity(final_City3);
-						newState3.updatingTaskTable(entry3.getKey(), false);
-					}
-					else if(entry3.getValue() == false) {
-
-						// move: pickup location => delivery location
-						for (City city : newState3.getCurrentCity().pathTo(entry3.getKey().deliveryCity)) {
-							newState3.action_list.add(new Action(false,false,null,true,city));
-							newState3.increaseCost((int)final_City3.distanceTo(city)*vehicle.costPerKm());
-							cost_prediction3+=((int)final_City3.distanceTo(city)*vehicle.costPerKm());
-							final_City3 = city;
-						}
-						newState3.action_list.add(new Action(false,true,entry3.getKey(),true,null));
-						newState3.setCurrentCity(final_City3);
-						newState3.increaseCurrentSpace(entry3.getKey().weight);
-						newState3.task_table.remove(entry3.getKey());
-					}
-					else continue;
-
-					if(currentCost > newState3.getCost()) {
-						//System.out.println("saving it");
-						if(currentCost != Integer.MAX_VALUE) stateToUpdate.decreaseAStarWeight(currentCost);
-						stateToUpdate.increaseAStarWeight(newState3.getCost());	
-						currentCost = newState3.getCost();
-					}
-				}
-			}
-		}
-		System.out.println("////////////// END ////////////////////");
-		System.out.println("/////////////////////////////////////////////////");
-
-	}
-	
-	private Plan ASTARPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {			
+		
+	private Plan Old_ASTARPlan(Vehicle vehicle, TaskSet tasks) throws CloneNotSupportedException {			
 		//Variables
 		City currentCity = vehicle.getCurrentCity();
 		ArrayList<Action> action_list = new ArrayList<Action>();
@@ -538,7 +494,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		state_list.add(currentState);
 		int state_number = 0;
 		int count=0;
-		int alpha = 2;
+		int alpha = 1;
 		//building the plan until there is no more task to pick up or to deliver
 		while(!state_list.isEmpty()) {
 				int state_number_prediction = 0;
@@ -592,14 +548,9 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 				
 				gettingPrediction(state_list, state_number_prediction, alpha, vehicle);
 
-			for(int i=1;i<state_number_prediction;i++) {
-				/*System.out.println("");
-				System.out.println("");
+				for(int i=1;i<state_number_prediction;i++) {
 
-				System.out.println("State 1= " + state_list.get(i-1) + " astar = " + state_list.get(i-1).aStarWeight);
-				System.out.println("State 2= " + state_list.get(i) + " astar = " + state_list.get(i).aStarWeight);*/
-
-					if(state_list.get(i-1).aStarWeight + state_list.get(i-1).getCost() >= state_list.get(i).aStarWeight + state_list.get(i).getCost()) {
+					if(state_list.get(i-1).aStarWeight >= state_list.get(i).aStarWeight) {
 						//System.out.println("removing 1");
 						state_list.remove(i-1);
 						i--;
@@ -613,7 +564,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			}				
 			for(int i=0;i<state_list.size();i++) {	
 
-				state_list.get(i).aStarWeight = state_list.get(i).getCost();
+				state_list.get(i).aStarWeight = -1;
 			}	
 			System.out.println("State number end after for= " + state_list.size());
 			System.out.println("State= " + state_list.toString());
@@ -622,6 +573,10 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			double progress = (double)count*10 /(task_number*2);
 			System.out.println("Count= " + count);
 			System.out.println("Progress= " + progress);
+			System.out.println("////////////////////////////////");
+			System.out.println("////////////////////////////////");
+			System.out.println("");
+			System.out.println("");
 			//if (count< 8) RemovingSimilarStates(state_list);
 			//if (task_number> 5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.45);
 			//if(progress>=3 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.048*progress);
@@ -842,6 +797,7 @@ class State implements Cloneable {
 	ArrayList<Action> action_list = new ArrayList<Action>();
 	int cost = 0;
 	int aStarWeight = 0;
+	int identity = -1;
 	public State clone() throws CloneNotSupportedException {
 		State clonedObj = (State) super.clone();
         clonedObj.currentCity = this.currentCity;
@@ -867,7 +823,7 @@ class State implements Cloneable {
 		this.aStarWeight = aStarWeight;				
 	}
 	public String toString() {
-		return "Current cost= " + this.getCost() +"Current space= " + this.getCurrentSpace() + "\n task table= " + this.getTaskTable().toString();
+		return "\nIdentity: " + this.identity + " Current cost= " + this.getCost() +" Current space= " + this.getCurrentSpace() + "\n\t task table= " + this.getTaskTable().toString();
 
 	}
 	public State() {				
@@ -878,6 +834,12 @@ class State implements Cloneable {
 	}
 	public void setCurrentCity(City city) {
 		this.currentCity=city;
+	}
+	public int getIdentity() {
+		return this.identity;
+	}
+	public void setIdentity(int identity) {
+		this.identity=identity;
 	}
 
 	public int getCurrentSpace() {
