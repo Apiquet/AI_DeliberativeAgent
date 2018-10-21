@@ -2,8 +2,14 @@
 
 <history configuration="config\deliberative.xml">
 	<agents>
-		<agent name="deliberative-bfs">
+		<agent name="deliberative-astar">
 			<vehicle name="Vehicle 1"/>
+		</agent>
+		<agent name="deliberative-bfs">
+			<vehicle name="Vehicle 2"/>
+		</agent>
+		<agent name="deliberative-random">
+			<vehicle name="Vehicle 3"/>
 		</agent>
 	</agents>
 	<rounds>
@@ -18,20 +24,70 @@
 			</tasks>
 			<events>
 				<event id="0" time="0" vehicle="Vehicle 1" pickup="4"/>
-				<event id="1" time="299999996" vehicle="Vehicle 1" move="Sion"/>
-				<event id="2" time="1966666593" vehicle="Vehicle 1" pickup="5"/>
-				<event id="3" time="2266666578" vehicle="Vehicle 1" pickup="2"/>
-				<event id="4" time="2566666564" vehicle="Vehicle 1" move="Thun"/>
+				<event id="1" time="0" vehicle="Vehicle 2" pickup="1"/>
+				<event id="2" time="0" vehicle="Vehicle 3" move="Aarau"/>
+				<event id="3" time="299999997" vehicle="Vehicle 1" move="Sion"/>
+				<event id="4" time="299999997" vehicle="Vehicle 2" move="Aarau"/>
+				<event id="5" time="966666639" vehicle="Vehicle 2" pickup="0"/>
+				<event id="6" time="1222222184" vehicle="Vehicle 3" move="Bern"/>
+				<event id="7" time="1266666626" vehicle="Vehicle 2" move="Bern"/>
+				<event id="8" time="1966666601" vehicle="Vehicle 1" pickup="2"/>
+				<event id="9" time="2266666590" vehicle="Vehicle 1" pickup="5"/>
+				<event id="10" time="2444444360" vehicle="Vehicle 3" move="Thun"/>
+				<event id="11" time="2488888804" vehicle="Vehicle 2" move="Thun"/>
+				<event id="12" time="2566666578" vehicle="Vehicle 1" move="Thun"/>
+				<event id="13" time="2888888785" vehicle="Vehicle 3" move="Sion"/>
+				<event id="14" time="2933333228" vehicle="Vehicle 2" move="Sion"/>
+				<event id="15" time="3899999857" vehicle="Vehicle 1" move="Bern"/>
+				<event id="16" time="4222222067" vehicle="Vehicle 3" move="Thun"/>
+				<event id="17" time="4266666511" vehicle="Vehicle 2" deliver="1"/>
+				<event id="18" time="4344444285" vehicle="Vehicle 1" move="Basel"/>
+				<event id="19" time="4566666500" vehicle="Vehicle 2" move="Lausanne"/>
+				<event id="20" time="5555555345" vehicle="Vehicle 3" move="Bern"/>
+				<event id="21" time="5899999774" vehicle="Vehicle 1" deliver="5"/>
+				<event id="22" time="5999999772" vehicle="Vehicle 3" move="Basel"/>
+				<event id="23" time="6199999761" vehicle="Vehicle 1" pickup="3"/>
+				<event id="24" time="6233333094" vehicle="Vehicle 2" move="Genève"/>
+				<event id="25" time="6499999745" vehicle="Vehicle 1" move="Zürich"/>
+				<event id="26" time="7233333044" vehicle="Vehicle 2" deliver="0"/>
+				<event id="27" time="7533333030" vehicle="Vehicle 2" move="Lausanne"/>
+				<event id="28" time="7833333017" vehicle="Vehicle 1" move="St-Gallen"/>
+				<event id="29" time="8533332985" vehicle="Vehicle 2" move="Fribourg"/>
+				<event id="30" time="9166666291" vehicle="Vehicle 1" deliver="4"/>
+				<event id="31" time="9466666278" vehicle="Vehicle 1" deliver="3"/>
+				<event id="32" time="9644444048" vehicle="Vehicle 2" move="Bern"/>
+				<event id="33" time="9766666262" vehicle="Vehicle 1" move="Zürich"/>
+				<event id="34" time="10199999578" vehicle="Vehicle 2" move="Basel"/>
+				<event id="35" time="11099999536" vehicle="Vehicle 1" move="Aarau"/>
+				<event id="36" time="11766666173" vehicle="Vehicle 1" move="Bern"/>
+				<event id="37" time="12988888337" vehicle="Vehicle 1" move="Fribourg"/>
+				<event id="38" time="13544443864" vehicle="Vehicle 1" move="Lausanne"/>
+				<event id="39" time="14655554925" vehicle="Vehicle 1" move="Genève"/>
+				<event id="40" time="15655554882" vehicle="Vehicle 1" deliver="2"/>
 			</events>
 		</round>
 	</rounds>
 	<statistics>
-		<stat rank="1" agent="deliberative-bfs">
-			<total-tasks value="6"/>
-			<total-distance value="270.0"/>
-			<total-cost value="1350"/>
+		<stat rank="1" agent="deliberative-astar">
+			<total-tasks value="4"/>
+			<total-distance value="1220.0"/>
+			<total-cost value="6100"/>
+			<total-reward value="183885"/>
+			<total-profit value="177785"/>
+		</stat>
+		<stat rank="2" agent="deliberative-bfs">
+			<total-tasks value="2"/>
+			<total-distance value="950.0"/>
+			<total-cost value="4750"/>
+			<total-reward value="77672"/>
+			<total-profit value="72922"/>
+		</stat>
+		<stat rank="3" agent="deliberative-random">
+			<total-tasks value="0"/>
+			<total-distance value="680.0"/>
+			<total-cost value="3400"/>
 			<total-reward value="0"/>
-			<total-profit value="-1350"/>
+			<total-profit value="-3400"/>
 		</stat>
 	</statistics>
 </history>
