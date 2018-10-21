@@ -311,7 +311,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			System.out.println("Progress= " + progress);
 			if (count< 8) RemovingSimilarStates(state_list);
 			//if (task_number> 5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.45);
-			if(progress>=3 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.048*progress);
+			if(progress>=4 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.050*progress);
 		}		
 		//finding best action
 		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
@@ -430,16 +430,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	}
 	private void gettingPrediction(ArrayList<State> state_list,int state_number_prediction, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
 		for(int i=0;i<state_number_prediction;i++) {
-			/*System.out.println(" ");
-			System.out.println(" ");
-
-			System.out.println("gettingPrediction on= " + state_list.get(i).toString());
-
-			System.out.println("State astar before prev= " + state_list.get(i).getAStarWeight());*/
-
 			nextLevelsPredictionNewVersion(state_list.get(i),state_list.get(i), alpha, vehicle);
-
-			//System.out.println("State astar after prev= " + state_list.get(i).getAStarWeight());
 		}
 	}
 	private void nextLevelsPredictionNewVersion(State stateToUpdate, State currentState, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
@@ -598,166 +589,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			// plan is computed.
 		}
 	}
-	/*
-	 private ArrayList<State> RemovingStatesWithHigherCost(ArrayList<State> state_list) {
-		int cost = state_list.get(0).getCost();
-		ArrayList<State> new_list = new ArrayList<State>();
-		State state = state_list.get(0);
-		for(int i=0;i<state_list.size();i++) {
-			if(state_list.get(i).getCost()<cost) {
-				state = state_list.get(i);
-			}
-		}
-		new_list.add(state);
-		return new_list;
-	}
-	private boolean IsStatePresent(ArrayList<State> state_list, State state) {
-		//System.out.println("New state= : " + state.toString());
-		//System.out.println("list size= : " + state_list.size());
-		
-		for(int i=0;i<state_list.size();i++) {
-			//System.out.println("Comparison state= : " + state_list.get(i).toString());
-			if(state_list.get(i).getTaskTable().size() == state.getTaskTable().size() && AreTaskTablesEqual(state_list.get(i).getTaskTable(),state.getTaskTable())) {
-				//System.out.println("EQUAL");
-				return true;
-			}
-		}
-		//System.out.println("NOT equal");
-
-		return false;
-	}
-	private boolean filterStateList(ArrayList<State> state_list) {
-		int cost = Integer.MAX_VALUE;
-		for(int i=0;i<state_list.size();i++) {
-			if(state_list.get(i).getCost()<cost) cost=state_list.get(i).getCost();
-			else state_list.remove(i);
-		}
-		int emptyState = 0;
-		for(int i=0;i<state_list.size();i++) {
-			if(state_list.get(i).getTaskTable().isEmpty()) emptyState++;;
-		}
-		if(state_list.size() == emptyState) return false;
-		return true;
-	}
-	private boolean isStateListTasksNotEmpty(ArrayList<State> state_list) {
-		boolean bool = false;
-		for(int i=0;i<state_list.size();i++) {
-			if(!state_list.get(i).getTaskTable().isEmpty()) bool=true;
-		}
-		return bool;
-	}
-	private void PickUpTask(City city, Hashtable<Task,Double> task_table,ArrayList<Action> action_list, AtomicInteger currentSpace) {
-		ArrayList<Task> tasksToPickUp = new ArrayList<Task>();
-		for(Entry<Task, Double> entry : task_table.entrySet()){
-			if(entry.getKey().pickupCity == city && entry.getValue() == 1 && currentSpace.get() > entry.getKey().weight){
-				tasksToPickUp.add(entry.getKey());
-				entry.setValue((double) 0);
-				//Adding pickup action to action_list
-				action_list.add(new Action(true,false,entry.getKey(),false,null));
-				currentSpace.set(currentSpace.get()-entry.getKey().weight);
-		    }
-		}
-	}
-	private void DeliverTask(City city, Hashtable<Task,Double> task_table, ArrayList<Action> action_list, AtomicInteger currentSpace, AtomicInteger totalReward) {
-		ArrayList<Task> tasksToDeliver = new ArrayList<Task>();
-		for(Entry<Task, Double> entry : task_table.entrySet()){
-			if(entry.getKey().deliveryCity == city && entry.getValue() == 0){
-				tasksToDeliver.add(entry.getKey());
-		    }
-		}
-		if(tasksToDeliver.size() != 0) {
-			for(int i=0;i<tasksToDeliver.size();i++) {
-				//Adding delivery action to action_list
-				action_list.add(new Action(false,true,tasksToDeliver.get(i),false,null));
-				currentSpace.set(currentSpace.get()+tasksToDeliver.get(i).weight);
-				//updating task_table
-				task_table.remove(tasksToDeliver.get(i));
-				totalReward.set((int) (totalReward.get()+tasksToDeliver.get(i).reward));
-			}				
-		}			
-	}
-	private City MovingToRandomCity(ArrayList<Action> action_list, AtomicInteger cost, City currentCity, Vehicle vehicle) {
-		// moving randomly:
-		Random rand = new Random();
-		City nextCity = currentCity.neighbors().get(rand.nextInt(currentCity.neighbors().size()));
-		//adding move action to the action_list
-		action_list.add(new Action(false,false,null,true,nextCity));
-		//updating cost of the current plan
-		cost.set((int) (cost.get()+currentCity.distanceTo(nextCity)*vehicle.costPerKm()));
-		
-		//updating current city
-		currentCity = nextCity;	
-		return currentCity;
-	}
-
-	 private Plan BFSRandPlan(Vehicle vehicle, TaskSet tasks) {
-		
-		//Variables
-		City currentCity = vehicle.getCurrentCity();
-		Plan plan = new Plan(currentCity);
-		HashMap<Plan,Double> plan_table=new HashMap<Plan, Double>();
-		HashMap<ArrayList<Action>,Double> action_table=new HashMap<ArrayList<Action>, Double>();	
-		ArrayList<Action> action_list = new ArrayList<Action>();
-		Hashtable<Task,Double> task_pickedUp = new Hashtable<Task,Double>();
-		Hashtable<Task,Double> task_table = new Hashtable<Task,Double>();
-		State currentState = new State();		
-		Action currentAction = new Action();
-		AtomicInteger cost = new AtomicInteger(0);
-		AtomicInteger totalReward = new AtomicInteger(0);
-		int profit=0; 
-		AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
-		int numberOfPlanToTry = 10000;
-
-		for(int j=0;j<numberOfPlanToTry;j++) {	
-			//fetching all the tasks
-			for (Task task : tasks) {
-				task_table.put(task, 1.0);
-			}
-			
-			//Declaring initial state with initial city, vehicle space and all the tasks
-			currentState = new State(currentCity, currentSpace.get(), task_table);
-			this.state_list.add(currentState);
-	
-			//building the plan until there is no more task to pick up or to deliver
-			while(!currentState.task_table.isEmpty() || !task_pickedUp.isEmpty()) {
-				
-				// moving randomly:
-				currentCity = MovingToRandomCity(action_list, cost, currentCity, vehicle);
-				
-				//verifying if there is any task to pick up in the current city
-				PickUpTask(currentCity,task_table,task_pickedUp, action_list, currentSpace);				
-				
-				//verifying if there is any task to deliver in the current city
-				DeliverTask(currentCity, task_pickedUp, action_list, currentSpace, totalReward);
-				
-				//updating current state and adding it to the state list
-				currentState = new State(currentCity, currentSpace.get(), task_table);
-				this.state_list.add(currentState);
-			}
-			
-			//adding new plan found to a table
-			action_table.put(action_list, (double) cost.get());
-
-			//reset all the variables for the next plan discovery
-			//currentCity = resetVariables(cost, totalReward, currentSpace, currentCity, action_list, task_pickedUp, vehicle);
-			cost.set(0);
-			totalReward.set(0);
-			currentSpace.set(vehicle.capacity());	
-			currentCity = vehicle.getCurrentCity();
-			action_list = new ArrayList<Action>();
-			task_pickedUp = new Hashtable<Task,Double>();			
-		}
-		
-		//finding best action
-		ArrayList<Action> bestActionList = FindBestAction(action_table);
-		
-		currentCity = vehicle.getCurrentCity();
-		
-		//building best plan with best action list
-		plan=BuildingPlan(currentCity, plan, bestActionList);
-		
-		return plan;
-	}*/
 }
 class Action{
 	boolean pickup=false;
