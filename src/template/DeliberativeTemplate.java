@@ -320,7 +320,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			double progress = (double)count*10 /(task_number*2);
 			if (count< 8) RemovingSimilarStates(state_list);
 			//if (task_number> 5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.45);
-			if(progress>=4 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.050*progress);
+			if(progress>=4 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.057*progress);
 		}		
 		//finding best action
 		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
