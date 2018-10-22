@@ -33,7 +33,8 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	/* Environment */
 	Topology topology;
 	TaskDistribution td;
-	ArrayList<State> finalstate_list= new ArrayList<State>();
+	ArrayList<State> finalstate_list_bfs= new ArrayList<State>();
+	ArrayList<State> finalstate_list_astar= new ArrayList<State>();
 
 	/* the properties of the agent */
 	Agent agent;
@@ -63,25 +64,20 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	@Override
 	public Plan plan(Vehicle vehicle, TaskSet tasks) {
 		Plan plan = null;
-		System.out.println("PLAN CALLED");
 		if(tasksUnreachable != null && planCancelled) tasks.removeAll(tasksUnreachable);
 		else tasksUnreachable=tasks;
-		//planCancelled=false;
 		// Compute the plan with the selected algorithm.
 		switch (algorithm) {
 		case ASTAR:
-			// ...
+			int alpha = 5;
 			try {
-				if(!planCancelled) plan = ASTARPlan(vehicle, tasks, tasksUnreachable,planCancelled);
-				else plan = BFSPlan(vehicle, tasks, tasksUnreachable,planCancelled);
+				plan = ASTARPlan(alpha, vehicle, tasks, tasksUnreachable,planCancelled);
 			} catch (CloneNotSupportedException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			break;
 		case BFS:
-			// ...
-			//plan = naivePlan(vehicle, tasks);
 			try {
 				plan = BFSPlan(vehicle, tasks, tasksUnreachable,planCancelled);
 			} catch (CloneNotSupportedException e) {
@@ -147,17 +143,14 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		City currentCity = initialCity;
 		for(int i=0;i<action_list.size();i++) {
 			if(action_list.get(i).getCity()!=null) {
-				//System.out.println("Move from= " + currentCity + bestActionList.get(i).getCity().toString());	
 				currentCity = action_list.get(i).getCity();
 				plan.appendMove(action_list.get(i).getCity());			
 			}
 			else {
 				if(action_list.get(i).getPickup()) {
-					//System.out.println("Pickup= " + bestActionList.get(i).getTask());
 					plan.appendPickup(action_list.get(i).getTask());
 				}
 				else {					
-					//System.out.println("deliver= " + bestActionList.get(i).getTask());
 					plan.appendDelivery(action_list.get(i).getTask());
 				}
 			}
@@ -172,19 +165,16 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		int j = 0;
 		while(i<state_list.size()) {
 			boolean i_removed=false;
-			//System.out.println("state size: " + state_list.size() + "i= " + i);
 			while(j<state_list.size()) {
 				boolean j_removed=false;
 				if(AreTaskTablesEqual(state_list.get(i).getTaskTable(),state_list.get(j).getTaskTable()) && i!=j && state_list.get(i).getCurrentCity() == state_list.get(j).getCurrentCity()) {
 					if(state_list.get(i).getCost() > state_list.get(j).getCost()) {
 						state_list.remove(i);
-						//System.out.println("remove: " + i);
 						i_removed = true;
 						break;
 					}
 					else{
 						state_list.remove(j);
-						//System.out.println("remove: " + j);
 						j_removed = false;
 					}					
 				}
@@ -192,7 +182,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			}
 			if(!i_removed) i++;
 		}
-		System.out.println("RemovingSimilarState, final state_list_size: " + state_list.size());
 	}
 	
 	private boolean AreTaskTablesEqual(Hashtable<Task,Boolean> task_table1, Hashtable<Task,Boolean> task_table2) {
@@ -208,14 +197,13 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	}
 	
 	private ArrayList<State> RemovingStateWithHigherCost(ArrayList<State> state_list, double cost) {
-		System.out.println("RemovingStateWithHigherCost, init state_list_size: " + state_list.size());
+		//System.out.println("RemovingStateWithHigherCost, init state_list_size: " + state_list.size());
 		ArrayList<State> new_list = new ArrayList<State>();
 		for(int i=0;i<state_list.size();i++) {
 			if(state_list.get(i).getCost()<cost) {
 				new_list.add(state_list.get(i));
 			}
 		}
-		System.out.println("RemovingStateWithHigherCost, final state_list_size: " + new_list.size());
 		return new_list;
 	}
 	
@@ -246,6 +234,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks, TaskSet tasksUnreachable, Boolean planCancelled) throws CloneNotSupportedException {			
 		//Variables
+		finalstate_list_bfs.clear();
 		City currentCity = vehicle.getCurrentCity();
 		ArrayList<Action> action_list = new ArrayList<Action>();
 		ArrayList<State> state_list = new ArrayList<State>();
@@ -306,7 +295,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 					}
 					else continue;
 					if(newState.task_table.isEmpty()) {
-						finalstate_list.add(newState);
+						finalstate_list_bfs.add(newState);
 					}
 					else {
 						state_list.add(newState);
@@ -318,19 +307,19 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			}
 			count++;
 			double progress = (double)count*10 /(task_number*2);
-			if (count< 8) RemovingSimilarStates(state_list);
-			//if (task_number> 5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.45);
-			if(progress>=4 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.057*progress);
+			System.out.println("Progress: " + progress);
+			if(progress>=4 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.055*progress);
 		}		
 		//finding best action
-		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
+		ArrayList<Action> bestActionList = FindBestState(finalstate_list_bfs);
 		Plan plan = new Plan(vehicle.getCurrentCity());
 		//building best plan with best action list
 		plan=BuildingPlan(vehicle.getCurrentCity(), plan, bestActionList);		
 		return plan;
 	}
-	private Plan ASTARPlan(Vehicle vehicle, TaskSet tasks, TaskSet tasksUnreachable, Boolean planCancelled) throws CloneNotSupportedException {			
+	private Plan ASTARPlan(int alpha, Vehicle vehicle, TaskSet tasks, TaskSet tasksUnreachable, Boolean planCancelled) throws CloneNotSupportedException {			
 		//Variables
+		finalstate_list_astar.clear();
 		City currentCity = vehicle.getCurrentCity();
 		ArrayList<Action> action_list = new ArrayList<Action>();
 		ArrayList<State> state_list = new ArrayList<State>();
@@ -339,16 +328,13 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		State currentState = new State();		
 		AtomicInteger currentSpace = new AtomicInteger(vehicle.capacity());
 		int naiveCost = 0;
-		int alpha=5;
 		//fetching all the tasks
 		for (Task task : tasks) {
 			task_table.put(task, true);
-			System.out.println("Task to pick up: " + task);
 		}
 		if(planCancelled) {
 			for (Task task : tasksUnreachable) {
 				task_table.put(task, false);
-				System.out.println("Task already picked up: " + task);
 			}
 			alpha=1;
 		}
@@ -360,7 +346,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 		int state_number = 0;
 		int count=0;
 		//building the plan until there is no more task to pick up or to deliver
-		while(finalstate_list.isEmpty()) {
+		while(finalstate_list_astar.isEmpty()) {
 			for(int j=0;j<alpha;j++) {
 				state_number=state_list.size();
 				for(int i=0;i<state_number;i++) {	
@@ -397,8 +383,8 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 						if(j==0) newState.setIdentity(count);
 						else newState.setIdentity(state_list.get(i).getIdentity());
 						if(newState.task_table.isEmpty()) {
-							finalstate_list.add(newState);
-							System.out.println("final state added");}
+							finalstate_list_astar.add(newState);
+						}
 						else {							
 							state_list.add(newState);
 						}
@@ -410,10 +396,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 					state_list.remove(0);
 				}
 			}
-			//System.out.println("State list size= " + state_list.size());
-			//System.out.println("State list= " + state_list.toString());
-			//System.out.println("Transition State list= " + transition_state_list.toString());
-			if(!state_list.isEmpty()) {
+			if(!state_list.isEmpty() && !planCancelled) {
 				State minimalCostState = new State();
 				int indexStateMinCost = -1;
 				int minCost=Integer.MAX_VALUE;
@@ -433,55 +416,16 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 				transition_state_list.clear();
 				state_list.add(minimalCostState);
 			}
-			//System.out.println("State list size= " + state_list.size());
-			//System.out.println("State= " + state_list.toString());
 		}		
 		//finding best action
-		//System.out.println("final State list size= " + finalstate_list.size());
 
-		ArrayList<Action> bestActionList = FindBestState(finalstate_list);
+		ArrayList<Action> bestActionList = FindBestState(finalstate_list_astar);
 		Plan plan = new Plan(vehicle.getCurrentCity());
 		//building best plan with best action list
-		plan=BuildingPlan(vehicle.getCurrentCity(), plan, bestActionList);		
+		plan=BuildingPlan(vehicle.getCurrentCity(), plan, bestActionList);	
 		return plan;
 	}
-	/*private void gettingPrediction(ArrayList<State> state_list,int state_number_prediction, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
-		for(int i=0;i<state_number_prediction;i++) {
-			nextLevelsPredictionNewVersion(state_list.get(i),state_list.get(i), alpha, vehicle);
-		}
-	}
-	private void nextLevelsPredictionNewVersion(State stateToUpdate, State currentState, int alpha, Vehicle vehicle) throws CloneNotSupportedException {
-		for (Entry<Task, Boolean> entry : currentState.task_table.entrySet()) {
-			State newState = currentState.clone();
-			City final_City = newState.getCurrentCity();
-			if(entry.getValue() == true && entry.getKey().weight < newState.getCurrentSpace()) {
-				for (City city : newState.getCurrentCity().pathTo(entry.getKey().pickupCity)) {
-					newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					final_City = city;
-				}
-				newState.setCurrentCity(final_City);
-				newState.decreaseCurrentSpace(entry.getKey().weight);
-				newState.updatingTaskTable(entry.getKey(), false);
-			}
-			else if(entry.getValue() == false) {
-				for (City city : newState.getCurrentCity().pathTo(entry.getKey().deliveryCity)) {
-					newState.increaseCost((int)final_City.distanceTo(city)*vehicle.costPerKm());
-					final_City = city;
-				}
-				newState.setCurrentCity(final_City);
-				newState.increaseCurrentSpace(entry.getKey().weight);
-				newState.task_table.remove(entry.getKey());
-			}
-			else continue;
-			if(alpha>1) nextLevelsPredictionNewVersion(stateToUpdate, newState, alpha-1, vehicle);			
-			else if(stateToUpdate.getAStarWeight() > newState.getCost() || stateToUpdate.getAStarWeight() == -1) {
-				//System.out.println("Updating astar weight to: " + newState.getCost());
-				stateToUpdate.setAStarWeight(newState.getCost());
-			}
-		}
-	}
-		
-	*/
+	
 	@Override
 	public void planCancelled(TaskSet carriedTasks) {
 		System.out.println("********************");
@@ -491,8 +435,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			// This cannot happen for this simple agent, but typically
 			// you will need to consider the carriedTasks when the next
 			// plan is computed.
-			System.out.println("********************");
-			System.out.println("IF");
 			System.out.println("carriedTasks:" + carriedTasks.toString());
 			this.tasksUnreachable.clear();
 			this.tasksUnreachable.addAll(carriedTasks);	
