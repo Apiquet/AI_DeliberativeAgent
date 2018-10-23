@@ -159,7 +159,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 	}
 	
 	private void RemovingSimilarStates(ArrayList<State> state_list) {
-		System.out.println("RemovingSimilarState, init state_list_size: " + state_list.size());
 		ArrayList<Integer> indexToDel = new ArrayList<Integer>();
 		int i = 0;
 		int j = 0;
@@ -228,8 +227,6 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			// set current city
 			currentCity = entry.getKey().deliveryCity;
 		}
-		System.out.println("Naive cost= " + cost);
-
 		return cost;
 	}
 	private Plan BFSPlan(Vehicle vehicle, TaskSet tasks, TaskSet tasksUnreachable, Boolean planCancelled) throws CloneNotSupportedException {			
@@ -308,7 +305,8 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 			count++;
 			double progress = (double)count*10 /(task_number*2);
 			System.out.println("Progress: " + progress);
-			if(progress>=4 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.055*progress);
+			RemovingSimilarStates(state_list);
+			if(progress>3 && task_number>5) state_list = RemovingStateWithHigherCost(state_list,naiveCost*0.052*progress);
 		}		
 		//finding best action
 		ArrayList<Action> bestActionList = FindBestState(finalstate_list_bfs);
