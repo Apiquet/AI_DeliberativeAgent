@@ -136,7 +136,7 @@ public class DeliberativeTemplate implements DeliberativeBehavior {
 				bestActionList= state_list.get(i).getActionList();
 		    }
 		}
-		System.out.println("Min Cost= " + minCost);
+		//System.out.println("Min Cost= " + minCost);
 		return bestActionList;
 	}
 	private Plan BuildingPlan(City initialCity, Plan plan, ArrayList<Action> action_list) {
