@@ -7,7 +7,9 @@ types of delivery drivers to compare different AI algorithms’ performance.
 
 I choose to implement two types of AI algorithms: Breadth-first search and A*.
 
-### What to download
+You can either run the simulation or go to the ''Simulation_visualizations'' to see the simulation.
+
+### What to download to run the simulation
 
 First download and install ''Repast J'' (one of the most used open-source, agent-based modeling 
 and simulation toolkit)
