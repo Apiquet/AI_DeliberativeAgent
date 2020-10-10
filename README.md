@@ -1,5 +1,7 @@
 # Deliberative Agents
 
+Project: https://apiquet.com/2019/02/10/maximizing-delivery-profit-thanks-to-ai/
+
 Thanks to some famous AI algorithms, I maximized the delivery profit of a Switzerland company.
 
 To achieve this goal I used Repast J software to build an agent simulation. I implemented several 
